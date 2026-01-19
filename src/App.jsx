@@ -9,7 +9,6 @@ const App = () => {
   const [view, setView] = useState('login');
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [supabase, setSupabase] = useState(null);
 
   const [loginPassword, setLoginPassword] = useState('');
@@ -39,7 +38,6 @@ const App = () => {
 
   const loadData = async (client) => {
     try {
-      setLoading(true);
       const [customersRes, tasksRes] = await Promise.all([
         client.from('customers').select('*'),
         client.from('tasks').select('*')
@@ -52,8 +50,6 @@ const App = () => {
       setTasks(tasksRes.data || []);
     } catch (err) {
       console.log('Demo mode - using local data only');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -418,6 +414,10 @@ const TaskList = ({ tasks, currentUser, onCompleteTask, customers }) => (
         <button onClick={() => onCompleteTask(t.id)} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 ml-4"><Check size={20} /> Complete</button>
       </div>
     ))}
+  </div>
+);
+
+export default App;
   </div>
 );
 
