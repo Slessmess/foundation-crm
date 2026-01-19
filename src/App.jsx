@@ -1,52 +1,4 @@
-const handlePhotoUpload = (customerId, file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const photoData = e.target.result;
-      if (!customerPhotos[customerId]) {
-        setCustomerPhotos({ ...customerPhotos, [customerId]: [] });
-      }
-      setCustomerPhotos({
-        ...customerPhotos,
-        [customerId]: [
-          ...(customerPhotos[customerId] || []),
-          {
-            id: Date.now(),
-            data: photoData,
-            uploadedBy: currentUser.name,
-            uploadedAt: new Date().toLocaleString()
-          }
-        ]
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const geocodeAddress = async (address, customerId) => {
-    try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
-      
-      if (data.results && data.results.length > 0) {
-        const result = data.results[0];
-        setCustomerCoordinates({
-          ...customerCoordinates,
-          [customerId]: {
-            lat: result.geometry.location.lat,
-            lng: result.geometry.location.lng,
-            fullAddress: result.formatted_address
-          }
-        });
-        return result.formatted_address;
-      }
-    } catch (err) {
-      console.log('Geocoding error:', err);
-    }
-    return null;
-  };
-
-  const canAccessCustomer = (customer) => {import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogOut, Edit2, Check, MapPin } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -75,7 +27,6 @@ const App = () => {
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
     const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-
     if (supabaseUrl && supabaseKey) {
       const client = createClient(supabaseUrl, supabaseKey);
       setSupabase(client);
@@ -90,7 +41,6 @@ const App = () => {
         client.from('tasks').select('*'),
         client.from('users').select('*')
       ]);
-
       if (customersRes.data) setCustomers(customersRes.data);
       if (tasksRes.data) setTasks(tasksRes.data);
       if (usersRes.data) setUsers(usersRes.data);
@@ -116,22 +66,12 @@ const App = () => {
       setError('Please enter username and password');
       return;
     }
-    
     if (users.find(u => u.name === registerData.username)) {
       setError('Username already exists');
       return;
     }
-
-    const newUser = {
-      id: Date.now(),
-      name: registerData.username,
-      role: registerData.role,
-      password: registerData.password
-    };
-
+    const newUser = { id: Date.now(), name: registerData.username, role: registerData.role, password: registerData.password };
     setUsers([...users, newUser]);
-    
-    // Save to Supabase
     if (supabase) {
       try {
         await supabase.from('users').insert([newUser]);
@@ -139,7 +79,6 @@ const App = () => {
         console.log('User saved locally');
       }
     }
-
     setError('');
     setShowRegister(false);
     setRegisterData({ username: '', password: '', role: 'canvasser' });
@@ -156,28 +95,43 @@ const App = () => {
   const handlePhotoUpload = (customerId, file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const photoData = e.target.result;
-      if (!customerPhotos[customerId]) {
-        setCustomerPhotos({ ...customerPhotos, [customerId]: [] });
-      }
       setCustomerPhotos({
         ...customerPhotos,
         [customerId]: [
           ...(customerPhotos[customerId] || []),
-          {
-            id: Date.now(),
-            data: photoData,
-            uploadedBy: currentUser.name,
-            uploadedAt: new Date().toLocaleString()
-          }
+          { id: Date.now(), data: e.target.result, uploadedBy: currentUser.name, uploadedAt: new Date().toLocaleString() }
         ]
       });
     };
     reader.readAsDataURL(file);
   };
-    if (currentUser.role === 'admin') return true;
-    if (currentUser.role === 'sales_manager') return true;
-    if (currentUser.role === 'confirmation') return true;
+
+  const geocodeAddress = async (address, customerId) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        setCustomerCoordinates({
+          ...customerCoordinates,
+          [customerId]: {
+            lat: result.geometry.location.lat,
+            lng: result.geometry.location.lng,
+            fullAddress: result.formatted_address
+          }
+        });
+        return result.formatted_address;
+      }
+    } catch (err) {
+      console.log('Geocoding error:', err);
+    }
+    return null;
+  };
+
+  const canAccessCustomer = (customer) => {
+    if (currentUser.role === 'admin' || currentUser.role === 'sales_manager' || currentUser.role === 'confirmation') return true;
     return false;
   };
 
@@ -198,19 +152,10 @@ const App = () => {
       verified: false,
       inspectionScheduled: false,
       purchased: false,
-      history: JSON.stringify([{
-        timestamp: new Date().toLocaleString(),
-        changedBy: currentUser.name,
-        action: 'Homeowner created'
-      }])
+      history: JSON.stringify([{ timestamp: new Date().toLocaleString(), changedBy: currentUser.name, action: 'Homeowner created' }])
     };
-
-    // Geocode the address
     const fullAddress = await geocodeAddress(formData.address, newCustomer.id);
-    if (fullAddress) {
-      newCustomer.address = fullAddress;
-    }
-
+    if (fullAddress) newCustomer.address = fullAddress;
     if (supabase) {
       try {
         await supabase.from('customers').insert([newCustomer]);
@@ -218,9 +163,7 @@ const App = () => {
         console.log('Saving locally');
       }
     }
-
     setCustomers([...customers, newCustomer]);
-
     const confirmationTask = {
       id: Date.now() + 1,
       type: 'verification',
@@ -232,7 +175,6 @@ const App = () => {
       assignedTo: 'Confirmation Team',
       createdAt: new Date().toLocaleString()
     };
-
     if (supabase) {
       try {
         await supabase.from('tasks').insert([confirmationTask]);
@@ -240,7 +182,6 @@ const App = () => {
         console.log('Saving task locally');
       }
     }
-
     setTasks([...tasks, confirmationTask]);
   };
 
@@ -251,20 +192,12 @@ const App = () => {
         return {
           ...c,
           [field]: value,
-          history: JSON.stringify([...history, {
-            timestamp: new Date().toLocaleString(),
-            changedBy: currentUser.name,
-            field: field,
-            oldValue: c[field],
-            newValue: value
-          }])
+          history: JSON.stringify([...history, { timestamp: new Date().toLocaleString(), changedBy: currentUser.name, field: field, oldValue: c[field], newValue: value }])
         };
       }
       return c;
     });
-
     setCustomers(updated);
-
     if (supabase) {
       const customer = updated.find(c => c.id === customerId);
       try {
@@ -276,12 +209,8 @@ const App = () => {
   };
 
   const completeTask = async (taskId) => {
-    const updated = tasks.map(t =>
-      t.id === taskId ? { ...t, completed: true, completedBy: currentUser.name, completedAt: new Date().toLocaleString() } : t
-    );
-
+    const updated = tasks.map(t => t.id === taskId ? { ...t, completed: true, completedBy: currentUser.name, completedAt: new Date().toLocaleString() } : t);
     setTasks(updated);
-
     if (supabase) {
       const task = updated.find(t => t.id === taskId);
       try {
@@ -298,76 +227,31 @@ const App = () => {
         <div className="bg-white rounded-lg shadow-2xl p-8 w-96">
           <h1 className="text-3xl font-bold text-center mb-2 text-blue-900">Foundation CRM</h1>
           <p className="text-center text-gray-600 mb-6 text-sm">Powered by Supabase & Vercel</p>
-
           {error && <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-600 text-red-800 text-sm">{error}</div>}
-
           {!showRegister ? (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                <input
-                  type="text"
-                  value={loginPassword.split('|')[0] || ''}
-                  onChange={(e) => setLoginPassword(e.target.value + '|' + (loginPassword.split('|')[1] || ''))}
-                  className="w-full p-2 border rounded mb-2"
-                  placeholder="Enter username"
-                />
+                <input type="text" value={loginPassword.split('|')[0] || ''} onChange={(e) => setLoginPassword(e.target.value + '|' + (loginPassword.split('|')[1] || ''))} className="w-full p-2 border rounded mb-2" placeholder="Enter username" />
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                <input
-                  type="password"
-                  value={loginPassword.split('|')[1] || ''}
-                  onChange={(e) => setLoginPassword((loginPassword.split('|')[0] || '') + '|' + e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
-                  className="w-full p-2 border rounded mb-3"
-                  placeholder="Enter password"
-                />
-                <button
-                  onClick={() => handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
-                  className="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700 mb-2"
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => {
-                    setShowRegister(true);
-                    setLoginPassword('');
-                    setError('');
-                  }}
-                  className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700"
-                >
-                  Create New Account
-                </button>
+                <input type="password" value={loginPassword.split('|')[1] || ''} onChange={(e) => setLoginPassword((loginPassword.split('|')[0] || '') + '|' + e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])} className="w-full p-2 border rounded mb-3" placeholder="Enter password" />
+                <button onClick={() => handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])} className="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700 mb-2">Login</button>
+                <button onClick={() => { setShowRegister(true); setLoginPassword(''); setError(''); }} className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700">Create New Account</button>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                <input
-                  type="text"
-                  value={registerData.username}
-                  onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                  className="w-full p-2 border rounded mb-3"
-                  placeholder="Choose a username"
-                />
+                <input type="text" value={registerData.username} onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })} className="w-full p-2 border rounded mb-3" placeholder="Choose a username" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                <input
-                  type="password"
-                  value={registerData.password}
-                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
-                  className="w-full p-2 border rounded mb-3"
-                  placeholder="Choose a password"
-                />
+                <input type="password" value={registerData.password} onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })} className="w-full p-2 border rounded mb-3" placeholder="Choose a password" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
-                <select
-                  value={registerData.role}
-                  onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })}
-                  className="w-full p-2 border rounded mb-3"
-                >
+                <select value={registerData.role} onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })} className="w-full p-2 border rounded mb-3">
                   <option value="admin">Admin</option>
                   <option value="sales_manager">Sales Manager</option>
                   <option value="sales_rep">Sales Representative</option>
@@ -375,22 +259,8 @@ const App = () => {
                   <option value="confirmation">Confirmation Team</option>
                 </select>
               </div>
-              <button
-                onClick={handleRegister}
-                className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700 mb-2"
-              >
-                Create Account
-              </button>
-              <button
-                onClick={() => {
-                  setShowRegister(false);
-                  setRegisterData({ username: '', password: '', role: 'canvasser' });
-                  setError('');
-                }}
-                className="w-full bg-gray-400 text-white p-2 rounded font-semibold hover:bg-gray-500"
-              >
-                Back to Login
-              </button>
+              <button onClick={handleRegister} className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700 mb-2">Create Account</button>
+              <button onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser' }); setError(''); }} className="w-full bg-gray-400 text-white p-2 rounded font-semibold hover:bg-gray-500">Back to Login</button>
             </div>
           )}
         </div>
@@ -410,7 +280,6 @@ const App = () => {
             <LogOut size={20} /> Logout
           </button>
         </div>
-
         <div className="flex gap-2 mb-8 flex-wrap">
           {currentUser.role === 'canvasser' && (
             <button onClick={() => setView('canvasser-form')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-form' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>New Homeowner</button>
@@ -431,57 +300,29 @@ const App = () => {
             <button onClick={() => setView('all-homeowners')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'all-homeowners' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>All Homeowners</button>
           )}
         </div>
-
         {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} />}
         {view === 'homeowners' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Homeowners" />}
-        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Customers" onMarkAsPurchased={updateCustomer} />}
+        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Customers" />}
         {view === 'all-homeowners' && <CustomerList customers={customers.filter(c => !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="All Homeowners" />}
         {view === 'map' && <CustomerMap customers={customers} coordinates={customerCoordinates} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
-
         {selectedCustomer && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Lead Created: {selectedCustomer.name}</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Homeowner Created: {selectedCustomer.name}</h2>
                 <button onClick={() => setSelectedCustomer(null)} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
               </div>
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <p className="text-sm text-gray-600">Name</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.address}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Foundation Type</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.foundationType}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">How They Heard About Us</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.sourceOfLead || 'Not specified'}</p>
-                </div>
+                <div><p className="text-sm text-gray-600">Name</p><p className="font-semibold text-gray-800">{selectedCustomer.name}</p></div>
+                <div><p className="text-sm text-gray-600">Phone</p><p className="font-semibold text-gray-800">{selectedCustomer.phone || 'N/A'}</p></div>
+                <div><p className="text-sm text-gray-600">Email</p><p className="font-semibold text-gray-800">{selectedCustomer.email || 'N/A'}</p></div>
+                <div><p className="text-sm text-gray-600">Address</p><p className="font-semibold text-gray-800">{selectedCustomer.address}</p></div>
+                <div><p className="text-sm text-gray-600">Foundation Type</p><p className="font-semibold text-gray-800">{selectedCustomer.foundationType}</p></div>
+                <div><p className="text-sm text-gray-600">How They Heard About Us</p><p className="font-semibold text-gray-800">{selectedCustomer.sourceOfLead || 'Not specified'}</p></div>
               </div>
-              {selectedCustomer.notes && (
-                <div className="mb-6">
-                  <p className="text-sm text-gray-600">Notes</p>
-                  <p className="font-semibold text-gray-800">{selectedCustomer.notes}</p>
-                </div>
-              )}
-              <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6">
-                <p className="text-green-800 font-semibold">✓ Lead submitted successfully!</p>
-                <p className="text-sm text-green-700">The confirmation team has been notified.</p>
-              </div>
+              {selectedCustomer.notes && (<div className="mb-6"><p className="text-sm text-gray-600">Notes</p><p className="font-semibold text-gray-800">{selectedCustomer.notes}</p></div>)}
+              <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6"><p className="text-green-800 font-semibold">✓ Homeowner added successfully!</p><p className="text-sm text-green-700">The confirmation team has been notified.</p></div>
               <button onClick={() => setSelectedCustomer(null)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Close</button>
             </div>
           </div>
@@ -489,82 +330,47 @@ const App = () => {
       </div>
     );
   }
-
   return null;
 };
 
 const CanvasserForm = ({ onSubmit, setSelectedCustomer, customers }) => {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
   const [submitted, setSubmitted] = useState(false);
-
   const handleSubmit = () => {
     if (!formData.name || !formData.address || !formData.foundationType) {
       alert('Please fill in: Name, Address, Foundation Type');
       return;
     }
     onSubmit(formData);
-    
-    // Find the newly created customer and display it
     const newCustomer = customers.find(c => c.name === formData.name && c.address === formData.address);
-    if (newCustomer) {
-      setSelectedCustomer(newCustomer);
-    }
-    
+    if (newCustomer) setSelectedCustomer(newCustomer);
     setSubmitted(true);
     setTimeout(() => {
       setFormData({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
       setSubmitted(false);
     }, 3000);
   };
-
   return (
     <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl">
       <h2 className="text-2xl font-bold mb-6 text-gray-800">New Homeowner Information</h2>
       {submitted && <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-600 text-green-800">✓ Homeowner added!</div>}
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label>
-            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-3 border rounded" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
-            <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 border rounded" />
-          </div>
+          <div><label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-3 border rounded" /></div>
+          <div><label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 border rounded" /></div>
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-          <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-3 border rounded" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Address *</label>
-          <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full p-3 border rounded" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Foundation Type *</label>
-          <select value={formData.foundationType} onChange={(e) => setFormData({ ...formData, foundationType: e.target.value })} className="w-full p-3 border rounded">
-            <option value="">Select...</option>
-            <option value="Concrete Slab">Concrete Slab</option>
-            <option value="Crawl Space">Crawl Space</option>
-            <option value="Basement">Basement</option>
-            <option value="Pilings">Pilings</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">How did they hear about us?</label>
-          <input type="text" value={formData.sourceOfLead} onChange={(e) => setFormData({ ...formData, sourceOfLead: e.target.value })} className="w-full p-3 border rounded" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-          <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full p-3 border rounded h-20" />
-        </div>
-        <button onClick={handleSubmit} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">Submit Lead</button>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Email</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-3 border rounded" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Address *</label><input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full p-3 border rounded" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Foundation Type *</label><select value={formData.foundationType} onChange={(e) => setFormData({ ...formData, foundationType: e.target.value })} className="w-full p-3 border rounded"><option value="">Select...</option><option value="Concrete Slab">Concrete Slab</option><option value="Crawl Space">Crawl Space</option><option value="Basement">Basement</option><option value="Pilings">Pilings</option></select></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-2">How did they hear about us?</label><input type="text" value={formData.sourceOfLead} onChange={(e) => setFormData({ ...formData, sourceOfLead: e.target.value })} className="w-full p-3 border rounded" /></div>
+        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label><textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full p-3 border rounded h-20" /></div>
+        <button onClick={handleSubmit} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">Submit</button>
       </div>
     </div>
   );
 };
 
-const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload, title = "Customers" }) => (
+const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload, title }) => (
   <div className="space-y-4">
     <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
     {customers.length === 0 ? (
@@ -579,9 +385,7 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               {c.purchased && <p className="text-sm text-green-600 font-semibold">✓ Customer (Purchased)</p>}
               {!c.purchased && <p className="text-sm text-blue-600 font-semibold">• Homeowner (Prospect)</p>}
             </div>
-            <button onClick={() => setEditingId(editingId === c.id ? null : c.id)} className="text-blue-600 hover:text-blue-800">
-              <Edit2 size={20} />
-            </button>
+            <button onClick={() => setEditingId(editingId === c.id ? null : c.id)} className="text-blue-600 hover:text-blue-800"><Edit2 size={20} /></button>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-6">
             <EditableField label="Phone" value={c.phone} editable={canEditField('phone') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'phone', v)} />
@@ -595,53 +399,15 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               <div className="grid grid-cols-2 gap-4">
                 <CheckField label="Verified" value={c.verified} editable={canEditField('verified') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'verified', v)} />
                 <CheckField label="Inspection Scheduled" value={c.inspectionScheduled} editable={canEditField('inspectionScheduled') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'inspectionScheduled', v)} />
-                {!c.purchased && (
-                  <button
-                    onClick={() => {
-                      onUpdate(c.id, 'purchased', true);
-                      setEditingId(null);
-                    }}
-                    className="col-span-2 bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700"
-                  >
-                    Mark as Customer (Purchased)
-                  </button>
-                )}
+                {!c.purchased && (<button onClick={() => { onUpdate(c.id, 'purchased', true); setEditingId(null); }} className="col-span-2 bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700">Mark as Customer (Purchased)</button>)}
               </div>
             </div>
           )}
-
           <div className="border-t pt-4">
             <h4 className="font-semibold text-gray-800 mb-3">Photos</h4>
-            <div className="mb-4">
-              <label className="block">
-                <span className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 inline-block">
-                  + Add Photo
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      onPhotoUpload(c.id, e.target.files[0]);
-                    }
-                  }}
-                  className="hidden"
-                />
-              </label>
-            </div>
+            <div className="mb-4"><label className="block"><span className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 inline-block">+ Add Photo</span><input type="file" accept="image/*" capture="environment" onChange={(e) => { if (e.target.files[0]) onPhotoUpload(c.id, e.target.files[0]); }} className="hidden" /></label></div>
             {photos[c.id] && photos[c.id].length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {photos[c.id].map(photo => (
-                  <div key={photo.id} className="border rounded-lg overflow-hidden">
-                    <img src={photo.data} alt="Homeowner" className="w-full h-40 object-cover" />
-                    <div className="p-2 bg-gray-50 text-xs text-gray-600">
-                      <p>By: {photo.uploadedBy}</p>
-                      <p>{photo.uploadedAt}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="grid grid-cols-2 gap-4">{photos[c.id].map(photo => (<div key={photo.id} className="border rounded-lg overflow-hidden"><img src={photo.data} alt="Homeowner" className="w-full h-40 object-cover" /><div className="p-2 bg-gray-50 text-xs text-gray-600"><p>By: {photo.uploadedBy}</p><p>{photo.uploadedAt}</p></div></div>))}</div>
             ) : (
               <p className="text-gray-500 text-sm">No photos yet</p>
             )}
@@ -655,9 +421,7 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
 const EditableField = ({ label, value, editable, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
-
   useEffect(() => setEditValue(value || ''), [value]);
-
   if (isEditing && editable) {
     return (
       <div>
@@ -670,7 +434,6 @@ const EditableField = ({ label, value, editable, onSave }) => {
       </div>
     );
   }
-
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
@@ -711,75 +474,32 @@ const TaskList = ({ tasks, currentUser, onCompleteTask }) => (
 
 const CustomerMap = ({ customers, coordinates }) => {
   const customersWithCoords = customers.filter(c => coordinates[c.id]);
-
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Customer Locations</h2>
-      
+      <h2 className="text-2xl font-bold mb-4 text-gray-800">Homeowner/Customer Locations</h2>
       {customersWithCoords.length === 0 ? (
-        <div className="p-8 text-center text-gray-500">
-          No customers with mapped locations yet. Add customers to see them on the map.
-        </div>
+        <div className="p-8 text-center text-gray-500">No locations mapped yet.</div>
       ) : (
         <div className="space-y-4">
           <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-            <p className="text-sm text-blue-800">
-              {customersWithCoords.length} customer{customersWithCoords.length !== 1 ? 's' : ''} mapped
-            </p>
+            <p className="text-sm text-blue-800">{customersWithCoords.length} location{customersWithCoords.length !== 1 ? 's' : ''} mapped</p>
           </div>
-
-          <div className="grid grid-cols-1 gap-4">
+          <div className="space-y-2">
             {customersWithCoords.map(customer => {
               const coord = coordinates[customer.id];
               const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(coord.fullAddress)}/@${coord.lat},${coord.lng},15z`;
-              
               return (
-                <a
-                  key={customer.id}
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-4 border rounded-lg hover:bg-blue-50 transition block"
-                >
-                  <div className="flex items-start justify-between">
+                <a key={customer.id} href={mapsUrl} target="_blank" rel="noopener noreferrer" className="p-3 border rounded hover:bg-blue-50 block">
+                  <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold text-gray-800">{customer.name}</h3>
-                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                        <MapPin size={16} /> {coord.fullAddress}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Coordinates: {coord.lat.toFixed(4)}, {coord.lng.toFixed(4)}
-                      </p>
+                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1"><MapPin size={16} /> {coord.fullAddress}</p>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-800 font-semibold text-sm">
-                      Open in Maps →
-                    </button>
+                    <span className="text-blue-600 text-sm">Open →</span>
                   </div>
                 </a>
               );
             })}
-          </div>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded border border-gray-200">
-            <p className="text-sm text-gray-600 font-semibold mb-2">View on Google Maps:</p>
-            <div className="space-y-2">
-              {customersWithCoords.map(customer => {
-                const coord = coordinates[customer.id];
-                const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(coord.fullAddress)}/@${coord.lat},${coord.lng},15z`;
-                
-                return (
-                  <a
-                    key={customer.id}
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm block"
-                  >
-                    • {customer.name} - {coord.fullAddress}
-                  </a>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}
