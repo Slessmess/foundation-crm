@@ -1,5 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { LogOut, Edit2, Check } from 'lucide-react';
+const handlePhotoUpload = (customerId, file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const photoData = e.target.result;
+      if (!customerPhotos[customerId]) {
+        setCustomerPhotos({ ...customerPhotos, [customerId]: [] });
+      }
+      setCustomerPhotos({
+        ...customerPhotos,
+        [customerId]: [
+          ...(customerPhotos[customerId] || []),
+          {
+            id: Date.now(),
+            data: photoData,
+            uploadedBy: currentUser.name,
+            uploadedAt: new Date().toLocaleString()
+          }
+        ]
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const geocodeAddress = async (address, customerId) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        setCustomerCoordinates({
+          ...customerCoordinates,
+          [customerId]: {
+            lat: result.geometry.location.lat,
+            lng: result.geometry.location.lng,
+            fullAddress: result.formatted_address
+          }
+        });
+        return result.formatted_address;
+      }
+    } catch (err) {
+      console.log('Geocoding error:', err);
+    }
+    return null;
+  };
+
+  const canAccessCustomer = (customer) => {import React, { useState, useEffect } from 'react';
+import { LogOut, Edit2, Check, MapPin } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const App = () => {
@@ -22,6 +70,7 @@ const App = () => {
   const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser' });
   const [customerPhotos, setCustomerPhotos] = useState({});
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerCoordinates, setCustomerCoordinates] = useState({});
 
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -126,8 +175,6 @@ const App = () => {
     };
     reader.readAsDataURL(file);
   };
-
-  const canAccessCustomer = (customer) => {
     if (currentUser.role === 'admin') return true;
     if (currentUser.role === 'sales_manager') return true;
     if (currentUser.role === 'confirmation') return true;
@@ -156,6 +203,12 @@ const App = () => {
         action: 'Customer created'
       }])
     };
+
+    // Geocode the address
+    const fullAddress = await geocodeAddress(formData.address, newCustomer.id);
+    if (fullAddress) {
+      newCustomer.address = fullAddress;
+    }
 
     if (supabase) {
       try {
@@ -364,6 +417,9 @@ const App = () => {
           {(currentUser.role === 'admin' || currentUser.role === 'sales_manager' || currentUser.role === 'sales_rep') && (
             <button onClick={() => setView('customers')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'customers' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Customers</button>
           )}
+          {(currentUser.role === 'admin' || currentUser.role === 'sales_manager') && (
+            <button onClick={() => setView('map')} className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}><MapPin size={18} /> Customer Map</button>
+          )}
           {(currentUser.role === 'confirmation' || currentUser.role === 'admin') && (
             <button onClick={() => setView('tasks')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'tasks' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Tasks ({tasks.filter(t => !t.completed).length})</button>
           )}
@@ -375,6 +431,7 @@ const App = () => {
         {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} />}
         {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c))} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
         {view === 'all-customers' && <CustomerList customers={customers} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
+        {view === 'map' && <CustomerMap customers={customers} coordinates={customerCoordinates} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
 
         {selectedCustomer && (
@@ -633,8 +690,82 @@ const TaskList = ({ tasks, currentUser, onCompleteTask }) => (
   </div>
 );
 
-export default App;
-  </div>
-);
+const CustomerMap = ({ customers, coordinates }) => {
+  const customersWithCoords = customers.filter(c => coordinates[c.id]);
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h2 className="text-2xl font-bold mb-4 text-gray-800">Customer Locations</h2>
+      
+      {customersWithCoords.length === 0 ? (
+        <div className="p-8 text-center text-gray-500">
+          No customers with mapped locations yet. Add customers to see them on the map.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
+            <p className="text-sm text-blue-800">
+              {customersWithCoords.length} customer{customersWithCoords.length !== 1 ? 's' : ''} mapped
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {customersWithCoords.map(customer => {
+              const coord = coordinates[customer.id];
+              const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(coord.fullAddress)}/@${coord.lat},${coord.lng},15z`;
+              
+              return (
+                <a
+                  key={customer.id}
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-4 border rounded-lg hover:bg-blue-50 transition block"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{customer.name}</h3>
+                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                        <MapPin size={16} /> {coord.fullAddress}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Coordinates: {coord.lat.toFixed(4)}, {coord.lng.toFixed(4)}
+                      </p>
+                    </div>
+                    <button className="text-blue-600 hover:text-blue-800 font-semibold text-sm">
+                      Open in Maps →
+                    </button>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 p-4 bg-gray-50 rounded border border-gray-200">
+            <p className="text-sm text-gray-600 font-semibold mb-2">View on Google Maps:</p>
+            <div className="space-y-2">
+              {customersWithCoords.map(customer => {
+                const coord = coordinates[customer.id];
+                const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(coord.fullAddress)}/@${coord.lat},${coord.lng},15z`;
+                
+                return (
+                  <a
+                    key={customer.id}
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm block"
+                  >
+                    • {customer.name} - {coord.fullAddress}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default App;
