@@ -40,16 +40,9 @@ const App = () => {
 
   useEffect(() => {
     if (currentUser && currentUser.role === 'canvasser') {
-      if (!currentUser) return;
-      const today = new Date();
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thisWeekLeads = customers.filter(c => {
-        const createdDate = new Date(c.createdAt);
-        return c.createdBy === currentUser.name && createdDate >= weekAgo && createdDate <= today;
-      }).length;
-      setLeadsThisWeek(thisWeekLeads);
+      calculateLeadsThisWeek();
     }
-  }, [customers, currentUser]);
+  }, [customers, currentUser, calculateLeadsThisWeek]);
 
   const loadData = async (client) => {
     try {
@@ -87,8 +80,6 @@ const App = () => {
     }).length;
     setLeadsThisWeek(thisWeekLeads);
   };
-
-  const handleAddressSearch = async (query) => {
     setAddressSearch(query);
     if (query.length < 3) {
       setAddressSuggestions([]);
