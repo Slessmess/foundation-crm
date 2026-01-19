@@ -10,6 +10,7 @@ const App = () => {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [supabase, setSupabase] = useState(null);
+  const [customerPhotos, setCustomerPhotos] = useState({});
   const [loginPassword, setLoginPassword] = useState('');
   const [users, setUsers] = useState([
     { id: 1, name: 'Admin User', role: 'admin', password: 'admin' },
@@ -89,8 +90,6 @@ const App = () => {
     setLoginPassword('');
     setError('');
   };
-
-  const canAccessCustomer = (customer) => {
     if (currentUser.role === 'admin') return true;
     if (currentUser.role === 'sales_manager') return true;
     if (currentUser.role === 'confirmation') return true;
@@ -336,8 +335,8 @@ const App = () => {
         </div>
 
         {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} />}
-        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c))} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} />}
-        {view === 'all-customers' && <CustomerList customers={customers} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} />}
+        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c))} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
+        {view === 'all-customers' && <CustomerList customers={customers} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
       </div>
     );
@@ -410,7 +409,7 @@ const CanvasserForm = ({ onSubmit }) => {
   );
 };
 
-const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId }) => (
+const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload }) => (
   <div className="space-y-4">
     {customers.length === 0 ? (
       <div className="bg-white rounded-lg p-8 text-center text-gray-500">No customers</div>
@@ -433,7 +432,7 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
             <EditableField label="Foundation Type" value={c.foundationType} editable={canEditField('foundationType') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'foundationType', v)} />
           </div>
           {currentUser.role !== 'canvasser' && (
-            <div className="border-t pt-4">
+            <div className="border-t pt-4 mb-4">
               <h4 className="font-semibold text-gray-800 mb-3">Status</h4>
               <div className="grid grid-cols-2 gap-4">
                 <CheckField label="Verified" value={c.verified} editable={canEditField('verified') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'verified', v)} />
@@ -441,6 +440,43 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               </div>
             </div>
           )}
+          
+          <div className="border-t pt-4">
+            <h4 className="font-semibold text-gray-800 mb-3">Photos</h4>
+            <div className="mb-4">
+              <label className="block">
+                <span className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 inline-block">
+                  + Add Photo
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    if (e.target.files[0]) {
+                      onPhotoUpload(c.id, e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {photos[c.id] && photos[c.id].length > 0 ? (
+              <div className="grid grid-cols-2 gap-4">
+                {photos[c.id].map(photo => (
+                  <div key={photo.id} className="border rounded-lg overflow-hidden">
+                    <img src={photo.data} alt="Customer" className="w-full h-40 object-cover" />
+                    <div className="p-2 bg-gray-50 text-xs text-gray-600">
+                      <p>By: {photo.uploadedBy}</p>
+                      <p>{photo.uploadedAt}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No photos yet</p>
+            )}
+          </div>
         </div>
       ))
     )}
