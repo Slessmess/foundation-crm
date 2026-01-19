@@ -11,15 +11,15 @@ const App = () => {
   const [error, setError] = useState('');
   const [supabase, setSupabase] = useState(null);
   const [loginPassword, setLoginPassword] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-
-  const users = [
+  const [users, setUsers] = useState([
     { id: 1, name: 'Admin User', role: 'admin', password: 'admin' },
     { id: 2, name: 'Sales Manager', role: 'sales_manager', password: 'manager' },
     { id: 3, name: 'Sales Rep 1', role: 'sales_rep', password: 'rep' },
     { id: 4, name: 'Canvasser', role: 'canvasser', password: 'canvas' },
     { id: 5, name: 'Confirmation Team', role: 'confirmation', password: 'confirm' }
-  ];
+  ]);
+  const [showRegister, setShowRegister] = useState(false);
+  const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser' });
 
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -46,22 +46,48 @@ const App = () => {
     }
   };
 
-  const handleLogin = (user) => {
-    if (loginPassword === user.password) {
+  const handleLogin = (username, password) => {
+    const user = users.find(u => u.name === username && u.password === password);
+    if (user) {
       setCurrentUser(user);
       setView('dashboard');
       setLoginPassword('');
       setError('');
     } else {
-      setError('Wrong password');
+      setError('Invalid username or password');
     }
+  };
+
+  const handleRegister = () => {
+    if (!registerData.username || !registerData.password) {
+      setError('Please enter username and password');
+      return;
+    }
+    
+    if (users.find(u => u.name === registerData.username)) {
+      setError('Username already exists');
+      return;
+    }
+
+    const newUser = {
+      id: Date.now(),
+      name: registerData.username,
+      role: registerData.role,
+      password: registerData.password
+    };
+
+    setUsers([...users, newUser]);
+    setError('');
+    setShowRegister(false);
+    setRegisterData({ username: '', password: '', role: 'canvasser' });
+    alert('Account created! You can now log in.');
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setView('login');
     setLoginPassword('');
-    setSelectedUser(null);
+    setError('');
   };
 
   const canAccessCustomer = (customer) => {
@@ -184,40 +210,98 @@ const App = () => {
 
           {error && <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-600 text-red-800 text-sm">{error}</div>}
 
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 mb-4">Select a user:</p>
-            {users.map(user => (
-              <button
-                key={user.id}
-                onClick={() => setSelectedUser(user)}
-                className={`w-full p-3 rounded border-2 transition text-left ${
-                  selectedUser?.id === user.id ? 'border-blue-600 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                <div className="font-semibold">{user.name}</div>
-                <div className="text-sm text-gray-600 capitalize">{user.role.replace('_', ' ')}</div>
-              </button>
-            ))}
-
-            {selectedUser && (
-              <div className="mt-6 pt-4 border-t">
+          {!showRegister ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                <input
+                  type="text"
+                  value={loginPassword.split('|')[0] || ''}
+                  onChange={(e) => setLoginPassword(e.target.value + '|' + (loginPassword.split('|')[1] || ''))}
+                  className="w-full p-2 border rounded mb-2"
+                  placeholder="Enter username"
+                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                 <input
                   type="password"
-                  placeholder="Password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleLogin(selectedUser)}
+                  value={loginPassword.split('|')[1] || ''}
+                  onChange={(e) => setLoginPassword((loginPassword.split('|')[0] || '') + '|' + e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
                   className="w-full p-2 border rounded mb-3"
+                  placeholder="Enter password"
                 />
                 <button
-                  onClick={() => handleLogin(selectedUser)}
-                  className="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700"
+                  onClick={() => handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
+                  className="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700 mb-2"
                 >
                   Login
                 </button>
+                <button
+                  onClick={() => {
+                    setShowRegister(true);
+                    setLoginPassword('');
+                    setError('');
+                  }}
+                  className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700"
+                >
+                  Create New Account
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                <input
+                  type="text"
+                  value={registerData.username}
+                  onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                  className="w-full p-2 border rounded mb-3"
+                  placeholder="Choose a username"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <input
+                  type="password"
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                  className="w-full p-2 border rounded mb-3"
+                  placeholder="Choose a password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
+                <select
+                  value={registerData.role}
+                  onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })}
+                  className="w-full p-2 border rounded mb-3"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="sales_manager">Sales Manager</option>
+                  <option value="sales_rep">Sales Representative</option>
+                  <option value="canvasser">Canvasser</option>
+                  <option value="confirmation">Confirmation Team</option>
+                </select>
+              </div>
+              <button
+                onClick={handleRegister}
+                className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700 mb-2"
+              >
+                Create Account
+              </button>
+              <button
+                onClick={() => {
+                  setShowRegister(false);
+                  setRegisterData({ username: '', password: '', role: 'canvasser' });
+                  setError('');
+                }}
+                className="w-full bg-gray-400 text-white p-2 rounded font-semibold hover:bg-gray-500"
+              >
+                Back to Login
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
