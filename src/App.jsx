@@ -36,13 +36,15 @@ const App = () => {
 
   const loadData = async (client) => {
     try {
-      const [customersRes, tasksRes] = await Promise.all([
+      const [customersRes, tasksRes, usersRes] = await Promise.all([
         client.from('customers').select('*'),
-        client.from('tasks').select('*')
+        client.from('tasks').select('*'),
+        client.from('users').select('*')
       ]);
 
       if (customersRes.data) setCustomers(customersRes.data);
       if (tasksRes.data) setTasks(tasksRes.data);
+      if (usersRes.data) setUsers(usersRes.data);
     } catch (err) {
       console.log('Using demo mode');
     }
@@ -60,7 +62,7 @@ const App = () => {
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!registerData.username || !registerData.password) {
       setError('Please enter username and password');
       return;
@@ -79,6 +81,16 @@ const App = () => {
     };
 
     setUsers([...users, newUser]);
+    
+    // Save to Supabase
+    if (supabase) {
+      try {
+        await supabase.from('users').insert([newUser]);
+      } catch (err) {
+        console.log('User saved locally');
+      }
+    }
+
     setError('');
     setShowRegister(false);
     setRegisterData({ username: '', password: '', role: 'canvasser' });
@@ -618,6 +630,10 @@ const TaskList = ({ tasks, currentUser, onCompleteTask }) => (
         </div>
       ))
     )}
+  </div>
+);
+
+export default App;
   </div>
 );
 
