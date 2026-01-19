@@ -10,7 +10,6 @@ const App = () => {
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [supabase, setSupabase] = useState(null);
-  const [customerPhotos, setCustomerPhotos] = useState({});
   const [loginPassword, setLoginPassword] = useState('');
   const [users, setUsers] = useState([
     { id: 1, name: 'Admin User', role: 'admin', password: 'admin' },
@@ -21,6 +20,7 @@ const App = () => {
   ]);
   const [showRegister, setShowRegister] = useState(false);
   const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser' });
+  const [customerPhotos, setCustomerPhotos] = useState({});
 
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -90,6 +90,31 @@ const App = () => {
     setLoginPassword('');
     setError('');
   };
+
+  const handlePhotoUpload = (customerId, file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const photoData = e.target.result;
+      if (!customerPhotos[customerId]) {
+        setCustomerPhotos({ ...customerPhotos, [customerId]: [] });
+      }
+      setCustomerPhotos({
+        ...customerPhotos,
+        [customerId]: [
+          ...(customerPhotos[customerId] || []),
+          {
+            id: Date.now(),
+            data: photoData,
+            uploadedBy: currentUser.name,
+            uploadedAt: new Date().toLocaleString()
+          }
+        ]
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const canAccessCustomer = (customer) => {
     if (currentUser.role === 'admin') return true;
     if (currentUser.role === 'sales_manager') return true;
     if (currentUser.role === 'confirmation') return true;
@@ -440,7 +465,7 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               </div>
             </div>
           )}
-          
+
           <div className="border-t pt-4">
             <h4 className="font-semibold text-gray-800 mb-3">Photos</h4>
             <div className="mb-4">
