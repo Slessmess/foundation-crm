@@ -197,10 +197,11 @@ const App = () => {
       createdAt: new Date().toLocaleString(),
       verified: false,
       inspectionScheduled: false,
+      purchased: false,
       history: JSON.stringify([{
         timestamp: new Date().toLocaleString(),
         changedBy: currentUser.name,
-        action: 'Customer created'
+        action: 'Homeowner created'
       }])
     };
 
@@ -412,25 +413,29 @@ const App = () => {
 
         <div className="flex gap-2 mb-8 flex-wrap">
           {currentUser.role === 'canvasser' && (
-            <button onClick={() => setView('canvasser-form')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-form' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>New Lead</button>
+            <button onClick={() => setView('canvasser-form')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-form' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>New Homeowner</button>
+          )}
+          {(currentUser.role === 'admin' || currentUser.role === 'sales_manager' || currentUser.role === 'sales_rep') && (
+            <button onClick={() => setView('homeowners')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'homeowners' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Homeowners</button>
           )}
           {(currentUser.role === 'admin' || currentUser.role === 'sales_manager' || currentUser.role === 'sales_rep') && (
             <button onClick={() => setView('customers')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'customers' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Customers</button>
           )}
           {(currentUser.role === 'admin' || currentUser.role === 'sales_manager') && (
-            <button onClick={() => setView('map')} className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}><MapPin size={18} /> Customer Map</button>
+            <button onClick={() => setView('map')} className={`px-6 py-2 rounded-lg font-semibold flex items-center gap-2 ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}><MapPin size={18} /> Location Map</button>
           )}
           {(currentUser.role === 'confirmation' || currentUser.role === 'admin') && (
             <button onClick={() => setView('tasks')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'tasks' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Tasks ({tasks.filter(t => !t.completed).length})</button>
           )}
           {currentUser.role === 'admin' && (
-            <button onClick={() => setView('all-customers')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'all-customers' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>All Customers</button>
+            <button onClick={() => setView('all-homeowners')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'all-homeowners' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>All Homeowners</button>
           )}
         </div>
 
         {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} />}
-        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c))} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
-        {view === 'all-customers' && <CustomerList customers={customers} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
+        {view === 'homeowners' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Homeowners" />}
+        {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Customers" onMarkAsPurchased={updateCustomer} />}
+        {view === 'all-homeowners' && <CustomerList customers={customers.filter(c => !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="All Homeowners" />}
         {view === 'map' && <CustomerMap customers={customers} coordinates={customerCoordinates} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
 
@@ -514,8 +519,8 @@ const CanvasserForm = ({ onSubmit, setSelectedCustomer, customers }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">New Lead Entry</h2>
-      {submitted && <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-600 text-green-800">✓ Lead submitted!</div>}
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">New Homeowner Information</h2>
+      {submitted && <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-600 text-green-800">✓ Homeowner added!</div>}
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -559,10 +564,11 @@ const CanvasserForm = ({ onSubmit, setSelectedCustomer, customers }) => {
   );
 };
 
-const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload }) => (
+const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload, title = "Customers" }) => (
   <div className="space-y-4">
+    <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
     {customers.length === 0 ? (
-      <div className="bg-white rounded-lg p-8 text-center text-gray-500">No customers</div>
+      <div className="bg-white rounded-lg p-8 text-center text-gray-500">No {title.toLowerCase()} to display</div>
     ) : (
       customers.map(c => (
         <div key={c.id} className="bg-white rounded-lg shadow-lg p-6">
@@ -570,6 +576,8 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
             <div>
               <h3 className="text-2xl font-bold text-gray-800">{c.name}</h3>
               <p className="text-sm text-gray-600">Created: {c.createdAt}</p>
+              {c.purchased && <p className="text-sm text-green-600 font-semibold">✓ Customer (Purchased)</p>}
+              {!c.purchased && <p className="text-sm text-blue-600 font-semibold">• Homeowner (Prospect)</p>}
             </div>
             <button onClick={() => setEditingId(editingId === c.id ? null : c.id)} className="text-blue-600 hover:text-blue-800">
               <Edit2 size={20} />
@@ -587,6 +595,17 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               <div className="grid grid-cols-2 gap-4">
                 <CheckField label="Verified" value={c.verified} editable={canEditField('verified') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'verified', v)} />
                 <CheckField label="Inspection Scheduled" value={c.inspectionScheduled} editable={canEditField('inspectionScheduled') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'inspectionScheduled', v)} />
+                {!c.purchased && (
+                  <button
+                    onClick={() => {
+                      onUpdate(c.id, 'purchased', true);
+                      setEditingId(null);
+                    }}
+                    className="col-span-2 bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700"
+                  >
+                    Mark as Customer (Purchased)
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -615,7 +634,7 @@ const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditi
               <div className="grid grid-cols-2 gap-4">
                 {photos[c.id].map(photo => (
                   <div key={photo.id} className="border rounded-lg overflow-hidden">
-                    <img src={photo.data} alt="Customer" className="w-full h-40 object-cover" />
+                    <img src={photo.data} alt="Homeowner" className="w-full h-40 object-cover" />
                     <div className="p-2 bg-gray-50 text-xs text-gray-600">
                       <p>By: {photo.uploadedBy}</p>
                       <p>{photo.uploadedAt}</p>
