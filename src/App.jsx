@@ -21,6 +21,7 @@ const App = () => {
   const [showRegister, setShowRegister] = useState(false);
   const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser' });
   const [customerPhotos, setCustomerPhotos] = useState({});
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -359,10 +360,58 @@ const App = () => {
           )}
         </div>
 
-        {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} />}
+        {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} />}
         {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c))} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
         {view === 'all-customers' && <CustomerList customers={customers} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
+
+        {selectedCustomer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Lead Created: {selectedCustomer.name}</h2>
+                <button onClick={() => setSelectedCustomer(null)} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-sm text-gray-600">Name</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Phone</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.email || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Address</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.address}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Foundation Type</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.foundationType}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">How They Heard About Us</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.sourceOfLead || 'Not specified'}</p>
+                </div>
+              </div>
+              {selectedCustomer.notes && (
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600">Notes</p>
+                  <p className="font-semibold text-gray-800">{selectedCustomer.notes}</p>
+                </div>
+              )}
+              <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6">
+                <p className="text-green-800 font-semibold">✓ Lead submitted successfully!</p>
+                <p className="text-sm text-green-700">The confirmation team has been notified.</p>
+              </div>
+              <button onClick={() => setSelectedCustomer(null)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Close</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -370,7 +419,7 @@ const App = () => {
   return null;
 };
 
-const CanvasserForm = ({ onSubmit }) => {
+const CanvasserForm = ({ onSubmit, setSelectedCustomer, customers }) => {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
   const [submitted, setSubmitted] = useState(false);
 
@@ -380,6 +429,13 @@ const CanvasserForm = ({ onSubmit }) => {
       return;
     }
     onSubmit(formData);
+    
+    // Find the newly created customer and display it
+    const newCustomer = customers.find(c => c.name === formData.name && c.address === formData.address);
+    if (newCustomer) {
+      setSelectedCustomer(newCustomer);
+    }
+    
     setSubmitted(true);
     setTimeout(() => {
       setFormData({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
