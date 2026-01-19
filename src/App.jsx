@@ -40,7 +40,14 @@ const App = () => {
 
   useEffect(() => {
     if (currentUser && currentUser.role === 'canvasser') {
-      calculateLeadsThisWeek();
+      if (!currentUser) return;
+      const today = new Date();
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thisWeekLeads = customers.filter(c => {
+        const createdDate = new Date(c.createdAt);
+        return c.createdBy === currentUser.name && createdDate >= weekAgo && createdDate <= today;
+      }).length;
+      setLeadsThisWeek(thisWeekLeads);
     }
   }, [customers, currentUser]);
 
@@ -57,6 +64,17 @@ const App = () => {
     } catch (err) {
       console.log('Using demo mode');
     }
+  };
+
+  const calculateLeadsThisWeek = () => {
+    if (!currentUser) return;
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thisWeekLeads = customers.filter(c => {
+      const createdDate = new Date(c.createdAt);
+      return c.createdBy === currentUser.name && createdDate >= weekAgo && createdDate <= today;
+    }).length;
+    setLeadsThisWeek(thisWeekLeads);
   };
 
   const calculateLeadsThisWeek = () => {
