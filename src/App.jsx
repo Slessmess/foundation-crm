@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Edit2, Check, MapPin } from 'lucide-react';
+import { LogOut, Edit2, Check, MapPin, Search, Target } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const App = () => {
@@ -12,17 +12,21 @@ const App = () => {
   const [supabase, setSupabase] = useState(null);
   const [loginPassword, setLoginPassword] = useState('');
   const [users, setUsers] = useState([
-    { id: 1, name: 'Admin User', role: 'admin', password: 'admin' },
-    { id: 2, name: 'Sales Manager', role: 'sales_manager', password: 'manager' },
-    { id: 3, name: 'Sales Rep 1', role: 'sales_rep', password: 'rep' },
-    { id: 4, name: 'Canvasser', role: 'canvasser', password: 'canvas' },
-    { id: 5, name: 'Confirmation Team', role: 'confirmation', password: 'confirm' }
+    { id: 1, name: 'Admin User', role: 'admin', password: 'admin', weeklyGoal: 0 },
+    { id: 2, name: 'Sales Manager', role: 'sales_manager', password: 'manager', weeklyGoal: 0 },
+    { id: 3, name: 'Sales Rep 1', role: 'sales_rep', password: 'rep', weeklyGoal: 0 },
+    { id: 4, name: 'Canvasser', role: 'canvasser', password: 'canvas', weeklyGoal: 10 },
+    { id: 5, name: 'Confirmation Team', role: 'confirmation', password: 'confirm', weeklyGoal: 0 }
   ]);
   const [showRegister, setShowRegister] = useState(false);
-  const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser' });
+  const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
   const [customerPhotos, setCustomerPhotos] = useState({});
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerCoordinates, setCustomerCoordinates] = useState({});
+  const [addressSearch, setAddressSearch] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState('');
+  const [leadsThisWeek, setLeadsThisWeek] = useState(0);
 
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -33,6 +37,12 @@ const App = () => {
       loadData(client);
     }
   }, []);
+
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'canvasser') {
+      calculateLeadsThisWeek();
+    }
+  }, [customers, currentUser]);
 
   const loadData = async (client) => {
     try {
@@ -49,13 +59,58 @@ const App = () => {
     }
   };
 
+  const calculateLeadsThisWeek = () => {
+    if (!currentUser) return;
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    const thisWeekLeads = customers.filter(c => {
+      const createdDate = new Date(c.createdAt);
+      return c.createdBy === currentUser.name && createdDate >= weekAgo && createdDate <= today;
+    }).length;
+    
+    setLeadsThisWeek(thisWeekLeads);
+  };
+
+  const handleAddressSearch = async (query) => {
+    setAddressSearch(query);
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      if (data.predictions) {
+        setAddressSuggestions(data.predictions.slice(0, 5));
+      }
+    } catch (err) {
+      console.log('Address search error:', err);
+    }
+  };
+
+  const handleAddressSelect = (prediction) => {
+    setSelectedAddress(prediction.description);
+    setAddressSearch(prediction.description);
+    setAddressSuggestions([]);
+  };
+
   const handleLogin = (username, password) => {
     const user = users.find(u => u.name === username && u.password === password);
     if (user) {
       setCurrentUser(user);
-      setView('dashboard');
       setLoginPassword('');
       setError('');
+      
+      if (user.role === 'canvasser') {
+        setView('canvasser-dashboard');
+      } else if (user.role === 'admin' || user.role === 'sales_manager') {
+        setView('dashboard');
+      } else if (user.role === 'confirmation' || user.role === 'sales_rep') {
+        setView('dashboard');
+      }
     } else {
       setError('Invalid username or password');
     }
@@ -70,7 +125,13 @@ const App = () => {
       setError('Username already exists');
       return;
     }
-    const newUser = { id: Date.now(), name: registerData.username, role: registerData.role, password: registerData.password };
+    const newUser = { 
+      id: Date.now(), 
+      name: registerData.username, 
+      role: registerData.role, 
+      password: registerData.password,
+      weeklyGoal: registerData.role === 'canvasser' ? registerData.weeklyGoal : 0
+    };
     setUsers([...users, newUser]);
     if (supabase) {
       try {
@@ -81,7 +142,7 @@ const App = () => {
     }
     setError('');
     setShowRegister(false);
-    setRegisterData({ username: '', password: '', role: 'canvasser' });
+    setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
     alert('Account created! You can now log in.');
   };
 
@@ -90,6 +151,7 @@ const App = () => {
     setView('login');
     setLoginPassword('');
     setError('');
+    setLeadsThisWeek(0);
   };
 
   const handlePhotoUpload = (customerId, file) => {
@@ -183,6 +245,7 @@ const App = () => {
       }
     }
     setTasks([...tasks, confirmationTask]);
+    setSelectedCustomer(newCustomer);
   };
 
   const updateCustomer = async (customerId, field, value) => {
@@ -221,6 +284,7 @@ const App = () => {
     }
   };
 
+  // LOGIN SCREEN
   if (view === 'login' && !currentUser) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 p-4">
@@ -259,8 +323,14 @@ const App = () => {
                   <option value="confirmation">Confirmation Team</option>
                 </select>
               </div>
+              {registerData.role === 'canvasser' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Weekly Goal</label>
+                  <input type="number" value={registerData.weeklyGoal} onChange={(e) => setRegisterData({ ...registerData, weeklyGoal: parseInt(e.target.value) })} className="w-full p-2 border rounded mb-3" placeholder="e.g. 10" />
+                </div>
+              )}
               <button onClick={handleRegister} className="w-full bg-green-600 text-white p-2 rounded font-semibold hover:bg-green-700 mb-2">Create Account</button>
-              <button onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser' }); setError(''); }} className="w-full bg-gray-400 text-white p-2 rounded font-semibold hover:bg-gray-500">Back to Login</button>
+              <button onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 }); setError(''); }} className="w-full bg-gray-400 text-white p-2 rounded font-semibold hover:bg-gray-500">Back to Login</button>
             </div>
           )}
         </div>
@@ -268,22 +338,106 @@ const App = () => {
     );
   }
 
-  if (currentUser) {
+  // CANVASSER DASHBOARD
+  if (view === 'canvasser-dashboard' && currentUser && currentUser.role === 'canvasser') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 p-6">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white">Foundation CRM</h1>
+            <h1 className="text-4xl font-bold text-white">Canvasser Dashboard</h1>
             <p className="text-blue-100">Welcome, {currentUser.name}</p>
           </div>
           <button onClick={handleLogout} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2">
             <LogOut size={20} /> Logout
           </button>
         </div>
+
         <div className="flex gap-2 mb-8 flex-wrap">
-          {currentUser.role === 'canvasser' && (
-            <button onClick={() => setView('canvasser-form')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-form' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>New Homeowner</button>
-          )}
+          <button onClick={() => setView('canvasser-dashboard')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-dashboard' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Dashboard</button>
+          <button onClick={() => setView('lead-hub')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'lead-hub' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Lead Hub</button>
+          <button onClick={() => setView('canvasser-form')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'canvasser-form' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>New Homeowner</button>
+          <button onClick={() => setView('my-leads')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'my-leads' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>My Leads</button>
+        </div>
+
+        {view === 'canvasser-dashboard' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-800">Weekly Leads</h2>
+                  <Target size={32} className="text-blue-600" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-bold text-blue-600">{leadsThisWeek}</span>
+                  <span className="text-gray-600">/ {currentUser.weeklyGoal} leads</span>
+                </div>
+                <div className="mt-4 bg-gray-100 rounded-full h-3 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 h-full transition-all" 
+                    style={{ width: `${(leadsThisWeek / currentUser.weeklyGoal) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {currentUser.weeklyGoal - leadsThisWeek} more leads needed to hit your goal
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">Quick Actions</h2>
+                <div className="space-y-3">
+                  <button onClick={() => setView('lead-hub')} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+                    <MapPin size={20} className="inline mr-2" /> Open Lead Hub
+                  </button>
+                  <button onClick={() => setView('canvasser-form')} className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">
+                    + New Homeowner
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'lead-hub' && <LeadHub addressSearch={addressSearch} handleAddressSearch={handleAddressSearch} addressSuggestions={addressSuggestions} handleAddressSelect={handleAddressSelect} selectedAddress={selectedAddress} setSelectedAddress={setSelectedAddress} customers={customers} coordinates={customerCoordinates} setView={setView} />}
+        {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} selectedAddress={selectedAddress} />}
+        {view === 'my-leads' && <MyLeads customers={customers} currentUser={currentUser} />}
+
+        {selectedCustomer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Homeowner Created: {selectedCustomer.name}</h2>
+                <button onClick={() => setSelectedCustomer(null)} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div><p className="text-sm text-gray-600">Name</p><p className="font-semibold text-gray-800">{selectedCustomer.name}</p></div>
+                <div><p className="text-sm text-gray-600">Phone</p><p className="font-semibold text-gray-800">{selectedCustomer.phone || 'N/A'}</p></div>
+                <div><p className="text-sm text-gray-600">Email</p><p className="font-semibold text-gray-800">{selectedCustomer.email || 'N/A'}</p></div>
+                <div><p className="text-sm text-gray-600">Address</p><p className="font-semibold text-gray-800">{selectedCustomer.address}</p></div>
+              </div>
+              <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6"><p className="text-green-800 font-semibold">✓ Homeowner added successfully!</p></div>
+              <button onClick={() => setSelectedCustomer(null)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Close</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // DEFAULT DASHBOARD FOR OTHER ROLES
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 p-6">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white">Foundation CRM</h1>
+            <p className="text-blue-100">Welcome, {currentUser.name} ({currentUser.role.replace('_', ' ')})</p>
+          </div>
+          <button onClick={handleLogout} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2">
+            <LogOut size={20} /> Logout
+          </button>
+        </div>
+
+        <div className="flex gap-2 mb-8 flex-wrap">
           {(currentUser.role === 'admin' || currentUser.role === 'sales_manager' || currentUser.role === 'sales_rep') && (
             <button onClick={() => setView('homeowners')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'homeowners' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>Homeowners</button>
           )}
@@ -300,211 +454,51 @@ const App = () => {
             <button onClick={() => setView('all-homeowners')} className={`px-6 py-2 rounded-lg font-semibold ${view === 'all-homeowners' ? 'bg-blue-600 text-white' : 'bg-white text-blue-900'}`}>All Homeowners</button>
           )}
         </div>
-        {view === 'canvasser-form' && <CanvasserForm onSubmit={addCustomer} setSelectedCustomer={setSelectedCustomer} customers={customers} />}
+
         {view === 'homeowners' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Homeowners" />}
         {view === 'customers' && <CustomerList customers={customers.filter(c => canAccessCustomer(c) && c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="Customers" />}
         {view === 'all-homeowners' && <CustomerList customers={customers.filter(c => !c.purchased)} currentUser={currentUser} onUpdate={updateCustomer} canEditField={canEditField} setEditingId={setEditingId} editingId={editingId} photos={customerPhotos} onPhotoUpload={handlePhotoUpload} title="All Homeowners" />}
         {view === 'map' && <CustomerMap customers={customers} coordinates={customerCoordinates} />}
         {view === 'tasks' && <TaskList tasks={tasks} currentUser={currentUser} onCompleteTask={completeTask} />}
-        {selectedCustomer && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Homeowner Created: {selectedCustomer.name}</h2>
-                <button onClick={() => setSelectedCustomer(null)} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div><p className="text-sm text-gray-600">Name</p><p className="font-semibold text-gray-800">{selectedCustomer.name}</p></div>
-                <div><p className="text-sm text-gray-600">Phone</p><p className="font-semibold text-gray-800">{selectedCustomer.phone || 'N/A'}</p></div>
-                <div><p className="text-sm text-gray-600">Email</p><p className="font-semibold text-gray-800">{selectedCustomer.email || 'N/A'}</p></div>
-                <div><p className="text-sm text-gray-600">Address</p><p className="font-semibold text-gray-800">{selectedCustomer.address}</p></div>
-                <div><p className="text-sm text-gray-600">Foundation Type</p><p className="font-semibold text-gray-800">{selectedCustomer.foundationType}</p></div>
-                <div><p className="text-sm text-gray-600">How They Heard About Us</p><p className="font-semibold text-gray-800">{selectedCustomer.sourceOfLead || 'Not specified'}</p></div>
-              </div>
-              {selectedCustomer.notes && (<div className="mb-6"><p className="text-sm text-gray-600">Notes</p><p className="font-semibold text-gray-800">{selectedCustomer.notes}</p></div>)}
-              <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6"><p className="text-green-800 font-semibold">✓ Homeowner added successfully!</p><p className="text-sm text-green-700">The confirmation team has been notified.</p></div>
-              <button onClick={() => setSelectedCustomer(null)} className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">Close</button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
+
   return null;
 };
 
-const CanvasserForm = ({ onSubmit, setSelectedCustomer, customers }) => {
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
-  const [submitted, setSubmitted] = useState(false);
-  const handleSubmit = () => {
-    if (!formData.name || !formData.address || !formData.foundationType) {
-      alert('Please fill in: Name, Address, Foundation Type');
-      return;
-    }
-    onSubmit(formData);
-    const newCustomer = customers.find(c => c.name === formData.name && c.address === formData.address);
-    if (newCustomer) setSelectedCustomer(newCustomer);
-    setSubmitted(true);
-    setTimeout(() => {
-      setFormData({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
-      setSubmitted(false);
-    }, 3000);
-  };
+const LeadHub = ({ addressSearch, handleAddressSearch, addressSuggestions, handleAddressSelect, selectedAddress, setSelectedAddress, customers, coordinates, setView }) => {
+  const customersWithCoords = customers.filter(c => coordinates[c.id]);
+  
   return (
-    <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">New Homeowner Information</h2>
-      {submitted && <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-600 text-green-800">✓ Homeowner added!</div>}
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div><label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-3 border rounded" /></div>
-          <div><label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 border rounded" /></div>
-        </div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Email</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-3 border rounded" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Address *</label><input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full p-3 border rounded" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Foundation Type *</label><select value={formData.foundationType} onChange={(e) => setFormData({ ...formData, foundationType: e.target.value })} className="w-full p-3 border rounded"><option value="">Select...</option><option value="Concrete Slab">Concrete Slab</option><option value="Crawl Space">Crawl Space</option><option value="Basement">Basement</option><option value="Pilings">Pilings</option></select></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-2">How did they hear about us?</label><input type="text" value={formData.sourceOfLead} onChange={(e) => setFormData({ ...formData, sourceOfLead: e.target.value })} className="w-full p-3 border rounded" /></div>
-        <div><label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label><textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full p-3 border rounded h-20" /></div>
-        <button onClick={handleSubmit} className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">Submit</button>
-      </div>
-    </div>
-  );
-};
-
-const CustomerList = ({ customers, currentUser, onUpdate, canEditField, setEditingId, editingId, photos, onPhotoUpload, title }) => (
-  <div className="space-y-4">
-    <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
-    {customers.length === 0 ? (
-      <div className="bg-white rounded-lg p-8 text-center text-gray-500">No {title.toLowerCase()} to display</div>
-    ) : (
-      customers.map(c => (
-        <div key={c.id} className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-2xl font-bold text-gray-800">{c.name}</h3>
-              <p className="text-sm text-gray-600">Created: {c.createdAt}</p>
-              {c.purchased && <p className="text-sm text-green-600 font-semibold">✓ Customer (Purchased)</p>}
-              {!c.purchased && <p className="text-sm text-blue-600 font-semibold">• Homeowner (Prospect)</p>}
-            </div>
-            <button onClick={() => setEditingId(editingId === c.id ? null : c.id)} className="text-blue-600 hover:text-blue-800"><Edit2 size={20} /></button>
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Lead Hub - Find Locations</h2>
+        
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Search for Address</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={addressSearch}
+              onChange={(e) => handleAddressSearch(e.target.value)}
+              placeholder="Start typing an address..."
+              className="w-full p-3 pl-10 border rounded-lg focus:outline-none focus:border-blue-600"
+            />
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <EditableField label="Phone" value={c.phone} editable={canEditField('phone') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'phone', v)} />
-            <EditableField label="Email" value={c.email} editable={canEditField('email') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'email', v)} />
-            <EditableField label="Address" value={c.address} editable={canEditField('address') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'address', v)} />
-            <EditableField label="Foundation Type" value={c.foundationType} editable={canEditField('foundationType') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'foundationType', v)} />
-          </div>
-          {currentUser.role !== 'canvasser' && (
-            <div className="border-t pt-4 mb-4">
-              <h4 className="font-semibold text-gray-800 mb-3">Status</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <CheckField label="Verified" value={c.verified} editable={canEditField('verified') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'verified', v)} />
-                <CheckField label="Inspection Scheduled" value={c.inspectionScheduled} editable={canEditField('inspectionScheduled') && editingId === c.id} onSave={(v) => onUpdate(c.id, 'inspectionScheduled', v)} />
-                {!c.purchased && (<button onClick={() => { onUpdate(c.id, 'purchased', true); setEditingId(null); }} className="col-span-2 bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700">Mark as Customer (Purchased)</button>)}
-              </div>
+          
+          {addressSuggestions.length > 0 && (
+            <div className="absolute z-10 w-full bg-white border border-gray-300 rounded mt-1 shadow-lg">
+              {addressSuggestions.map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleAddressSelect(suggestion)}
+                  className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0"
+                >
+                  <p className="font-semibold text-gray-800">{suggestion.description}</p>
+                </button>
+              ))}
             </div>
           )}
-          <div className="border-t pt-4">
-            <h4 className="font-semibold text-gray-800 mb-3">Photos</h4>
-            <div className="mb-4"><label className="block"><span className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 inline-block">+ Add Photo</span><input type="file" accept="image/*" capture="environment" onChange={(e) => { if (e.target.files[0]) onPhotoUpload(c.id, e.target.files[0]); }} className="hidden" /></label></div>
-            {photos[c.id] && photos[c.id].length > 0 ? (
-              <div className="grid grid-cols-2 gap-4">{photos[c.id].map(photo => (<div key={photo.id} className="border rounded-lg overflow-hidden"><img src={photo.data} alt="Homeowner" className="w-full h-40 object-cover" /><div className="p-2 bg-gray-50 text-xs text-gray-600"><p>By: {photo.uploadedBy}</p><p>{photo.uploadedAt}</p></div></div>))}</div>
-            ) : (
-              <p className="text-gray-500 text-sm">No photos yet</p>
-            )}
-          </div>
-        </div>
-      ))
-    )}
-  </div>
-);
-
-const EditableField = ({ label, value, editable, onSave }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value || '');
-  useEffect(() => setEditValue(value || ''), [value]);
-  if (isEditing && editable) {
-    return (
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
-        <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} className="w-full p-2 border border-blue-500 rounded text-sm" />
-        <div className="flex gap-2 mt-1">
-          <button onClick={() => { onSave(editValue); setIsEditing(false); }} className="text-green-600 text-sm font-semibold">Save</button>
-          <button onClick={() => setIsEditing(false)} className="text-gray-600 text-sm">Cancel</button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
-      <p className="text-gray-800">{value || '—'}</p>
-      {editable && <button onClick={() => setIsEditing(true)} className="text-blue-600 text-sm mt-1">Edit</button>}
-    </div>
-  );
-};
-
-const CheckField = ({ label, value, editable, onSave }) => (
-  <div>
-    <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
-    <input type="checkbox" checked={value || false} onChange={(e) => onSave(e.target.checked)} disabled={!editable} className="w-5 h-5" />
-  </div>
-);
-
-const TaskList = ({ tasks, currentUser, onCompleteTask }) => (
-  <div className="space-y-4">
-    <h2 className="text-2xl font-bold text-white mb-6">Pending Tasks</h2>
-    {tasks.filter(t => !t.completed).length === 0 ? (
-      <div className="bg-white rounded-lg p-8 text-center text-gray-500">All done!</div>
-    ) : (
-      tasks.filter(t => !t.completed).map(t => (
-        <div key={t.id} className="bg-white rounded-lg shadow-lg p-6 flex justify-between items-start">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800">{t.description}</h3>
-            <p className="text-sm text-gray-600 mt-2">Customer: {t.customerName}</p>
-            <p className="text-sm text-gray-600">Due: {t.dueDate}</p>
-          </div>
-          <button onClick={() => onCompleteTask(t.id)} className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 ml-4">
-            <Check size={20} /> Complete
-          </button>
-        </div>
-      ))
-    )}
-  </div>
-);
-
-const CustomerMap = ({ customers, coordinates }) => {
-  const customersWithCoords = customers.filter(c => coordinates[c.id]);
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">Homeowner/Customer Locations</h2>
-      {customersWithCoords.length === 0 ? (
-        <div className="p-8 text-center text-gray-500">No locations mapped yet.</div>
-      ) : (
-        <div className="space-y-4">
-          <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-            <p className="text-sm text-blue-800">{customersWithCoords.length} location{customersWithCoords.length !== 1 ? 's' : ''} mapped</p>
-          </div>
-          <div className="space-y-2">
-            {customersWithCoords.map(customer => {
-              const coord = coordinates[customer.id];
-              const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(coord.fullAddress)}/@${coord.lat},${coord.lng},15z`;
-              return (
-                <a key={customer.id} href={mapsUrl} target="_blank" rel="noopener noreferrer" className="p-3 border rounded hover:bg-blue-50 block">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-gray-800">{customer.name}</h3>
-                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1"><MapPin size={16} /> {coord.fullAddress}</p>
-                    </div>
-                    <span className="text-blue-600 text-sm">Open →</span>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default App;
+        </div
