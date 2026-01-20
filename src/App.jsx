@@ -674,9 +674,15 @@ const CanvasserDashboard = (props) => {
           <LeadHub {...props} />
         )}
 
-        {view === 'canvasser-form' && (
-          <CanvasserForm {...props} />
-        )}
+       {view === 'canvasser-form' && (
+  <CanvasserForm 
+    addCustomer={addCustomer} 
+    selectedAddress={selectedAddress}
+    handleAddressSearch={handleAddressSearch}
+    addressSuggestions={addressSuggestions}
+    handleAddressSelect={handleAddressSelect}
+  />
+)}
 
         {view === 'my-leads' && (
           <MyLeads customers={myLeads} customerPhotos={props.customerPhotos} />
