@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, Plus, Send } from 'lucide-react';
+import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, Plus, Send, Menu } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -1255,7 +1255,12 @@ const LeadCard = ({ customer, photos }) => {
 // ADMIN DASHBOARD - Management view
 // ============================================
 
-const AdminDashboard = (props) => {
+  const AdminDashboard = (props) => {
+  const { view, setView, currentUser, handleLogout, customers, tasks } = props;
+  const [showBurgerMenu, setShowBurgerMenu] = useState(false);
+  const [channels, setChannels] = useState([
+    { id: 1, name: 'Everyone', members: 'all', messages: [] }
+  ]);
   const { view, setView, currentUser, handleLogout, customers, tasks } = props;
 
   return (
