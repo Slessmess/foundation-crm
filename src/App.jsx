@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, Plus, Send, UserPlus } from 'lucide-react';
+import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, Plus, Send } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -651,6 +651,14 @@ const CanvasserDashboard = (props) => {
 
         {view === 'my-leads' && (
           <MyLeads customers={myLeads} customerPhotos={props.customerPhotos} />
+        )}
+        {view === 'team' && (
+          <TeamMessaging 
+            currentUser={currentUser}
+            users={props.users}
+            channels={props.channels}
+            setChannels={props.setChannels}
+          />
         )}
       </div>
 
