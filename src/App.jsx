@@ -110,24 +110,24 @@ const App = () => {
 
   // Address search handling - FIXED
   const handleAddressSearch = async (query) => {
-    setAddressSearch(query);
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      return;
+  setAddressSearch(query);
+  if (query.length < 3) {
+    setAddressSuggestions([]);
+    return;
+  }
+  
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+    if (data.predictions) {
+      setAddressSuggestions(data.predictions);
     }
-    
-    try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
-      if (data.predictions) {
-        setAddressSuggestions(data.predictions);
-      }
-    } catch (err) {
-      console.error('Address search error:', err);
-    }
-  };
+  } catch (err) {
+    console.error('Address search error:', err);
+  }
+};
 
   const handleAddressSelect = (prediction) => {
     setSelectedAddress(prediction.description);
