@@ -115,11 +115,24 @@ const App = () => {
 
   // Address search handling
   const handleAddressSearch = async (query) => {
-    setAddressSearch(query);
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      return;
+  setAddressSearch(query);
+  if (query.length < 3) {
+    setAddressSuggestions([]);
+    return;
+  }
+  
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+    if (data.predictions) {
+      setAddressSuggestions(data.predictions);
     }
+  } catch (err) {
+    console.error('Address search error:', err);
+  }
+};
     
     // Mock suggestions (replace with Google Places API)
     const mockSuggestions = [
@@ -219,14 +232,41 @@ const App = () => {
   };
 
   // Geocoding
-  const geocodeAddress = async (address, customerId) => {
-    // Mock geocoding (replace with Google Geocoding API)
-    const mockCoord = {
-      customerId: customerId,
-      lat: 39.1031 + (Math.random() - 0.5) * 0.1,
-      lng: -84.5120 + (Math.random() - 0.5) * 0.1,
-      fullAddress: address
-    };
+ const geocodeAddress = async (address, customerId) => {
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+    if (data.results && data.results.length > 0) {
+      const result = data.results[0];
+      const coord = {
+        customerId: customerId,
+        lat: result.geometry.location.lat,
+        lng: result.geometry.location.lng,
+        fullAddress: result.formatted_address
+      };
+      
+      setCustomerCoordinates({
+        ...customerCoordinates,
+        [customerId]: coord
+      });
+      
+      if (supabase) {
+        try {
+          await supabase.from('customer_coordinates').insert([coord]);
+        } catch (err) {
+          console.log('Coordinates saved locally');
+        }
+      }
+      
+      return result.formatted_address;
+    }
+  } catch (err) {
+    console.error('Geocoding error:', err);
+  }
+  return address;
+};
     
     setCustomerCoordinates({
       ...customerCoordinates,
