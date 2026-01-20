@@ -114,21 +114,25 @@ const App = () => {
   };
 
   // Address search handling
-  const handleAddressSearch = async (query) => {
-    setAddressSearch(query);
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      return;
+ const handleAddressSearch = async (query) => {
+  setAddressSearch(query);
+  if (query.length < 3) {
+    setAddressSuggestions([]);
+    return;
+  }
+  
+  try {
+    const response = await fetch(
+      "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=" + encodeURIComponent(query) + "&key=" + process.env.REACT_APP_GOOGLE_MAPS_API_KEY
+    );
+    const data = await response.json();
+    if (data.predictions) {
+      setAddressSuggestions(data.predictions);
     }
-    
-    // Mock suggestions (replace with Google Places API)
-    const mockSuggestions = [
-      { description: `${query} Street, Cincinnati, OH`, place_id: '1' },
-      { description: `${query} Avenue, Cincinnati, OH`, place_id: '2' },
-      { description: `${query} Road, Cincinnati, OH`, place_id: '3' }
-    ];
-    setAddressSuggestions(mockSuggestions);
-  };
+  } catch (err) {
+    console.error('Address search error:', err);
+  }
+};
 
   const handleAddressSelect = (prediction) => {
     setSelectedAddress(prediction.description);
