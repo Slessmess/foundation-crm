@@ -939,7 +939,7 @@ const LeadHub = ({ addressSearch, handleAddressSearch, addressSuggestions, handl
 // CANVASSER FORM - Lead creation form
 // ============================================
 
-const CanvasserForm = ({ addCustomer, selectedAddress }) => {
+const CanvasserForm = ({ addCustomer, selectedAddress, handleAddressSearch, addressSuggestions, handleAddressSelect }) => {
   const [formData, setFormData] = useState({ 
     name: '', 
     phone: '', 
@@ -951,6 +951,7 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
   });
   const [photoPreview, setPhotoPreview] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, address: selectedAddress || prev.address }));
@@ -963,6 +964,17 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
       reader.onload = (e) => setPhotoPreview(e.target.result);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleAddressChange = (value) => {
+    setFormData({ ...formData, address: value });
+    handleAddressSearch(value);
+    setShowSuggestions(true);
+  };
+
+  const selectAddress = (suggestion) => {
+    setFormData({ ...formData, address: suggestion.description });
+    setShowSuggestions(false);
   };
 
   const handleSubmit = () => {
@@ -1020,14 +1032,39 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
           type="email"
         />
 
-        {/* Address */}
-        <FormField 
-          label="Address" 
-          required
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          placeholder="123 Main St, Cincinnati, OH 45202"
-        />
+        {/* Address with Autocomplete */}
+        <div className="relative">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Address <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
+            <input 
+              type="text"
+              value={formData.address}
+              onChange={(e) => handleAddressChange(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              className="w-full p-3 pl-10 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
+              placeholder="Start typing address..."
+            />
+          </div>
+          
+          {/* Address Suggestions Dropdown */}
+          {showSuggestions && addressSuggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+              {addressSuggestions.map((suggestion, idx) => (
+                <button 
+                  key={idx} 
+                  type="button"
+                  onClick={() => selectAddress(suggestion)} 
+                  className="w-full text-left p-4 hover:bg-blue-50 border-b last:border-b-0 transition-colors"
+                >
+                  <p className="font-semibold text-gray-800">{suggestion.description}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Foundation Type and Source */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1105,23 +1142,6 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
           Submit Homeowner
         </button>
       </div>
-    </div>
-  );
-};
-
-const FormField = ({ label, required, value, onChange, placeholder, type = "text" }) => {
-  return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input 
-        type={type}
-        value={value}
-        onChange={onChange}
-        className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-        placeholder={placeholder}
-      />
     </div>
   );
 };
