@@ -48,6 +48,9 @@ const App = () => {
   const [selectedAddress, setSelectedAddress] = useState('');
   const [leadsThisWeek, setLeadsThisWeek] = useState(0);
   const [showBurgerMenu, setShowBurgerMenu] = useState(false);
+  const [channels, setChannels] = useState([
+    { id: 1, name: 'Everyone', members: 'all', messages: [], createdBy: 'System', createdAt: new Date().toISOString() }
+  ]);
 
   // Initialize Supabase
   useEffect(() => {
@@ -81,17 +84,19 @@ const App = () => {
   // Data loading
   const loadData = async (client) => {
     try {
-      const [customersRes, tasksRes, usersRes, photosRes, coordsRes] = await Promise.all([
+      const [customersRes, tasksRes, usersRes, photosRes, coordsRes, channelsRes] = await Promise.all([
         client.from('customers').select('*'),
         client.from('tasks').select('*'),
         client.from('users').select('*'),
         client.from('customer_photos').select('*'),
-        client.from('customer_coordinates').select('*')
+        client.from('customer_coordinates').select('*'),
+        client.from('channels').select('*')
       ]);
       
       if (customersRes.data) setCustomers(customersRes.data);
       if (tasksRes.data) setTasks(tasksRes.data);
       if (usersRes.data && usersRes.data.length > 0) setUsers(usersRes.data);
+      if (channelsRes.data && channelsRes.data.length > 0) setChannels(channelsRes.data);
       
       if (photosRes.data) {
         const photoMap = {};
