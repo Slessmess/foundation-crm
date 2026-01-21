@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, Plus, Send, UserPlus, Menu } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { LogOut, Edit2, Check, MapPin, Search, Target, Calendar, BarChart3, X, Camera, Phone, Mail, Home, User, Clock, CheckCircle, AlertCircle, TrendingUp, FileText, Users, Activity, MessageSquare, UserPlus, Menu } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -756,6 +756,15 @@ const CanvasserDashboard = (props) => {
         {view === 'my-leads' && (
           <MyLeads customers={myLeads} customerPhotos={props.customerPhotos} />
         )}
+
+        {view === 'team' && (
+          <TeamMessaging 
+            currentUser={currentUser}
+            users={props.users}
+            channels={props.channels}
+            setChannels={props.setChannels}
+          />
+        )}
       </div>
 
       {/* Success Modal */}
@@ -1202,6 +1211,118 @@ const FormField = ({ label, required, value, onChange, placeholder, type = "text
 };
 
 // ============================================
+// TEAM MESSAGING - Simple messaging interface
+// ============================================
+
+const TeamMessaging = ({ currentUser, users, channels, setChannels }) => {
+  const [activeChannel] = useState(channels[0] || { id: 1, name: 'Everyone', members: 'all', messages: [] });
+  const [messageText, setMessageText] = useState('');
+
+  const sendMessage = () => {
+    if (!messageText.trim()) return;
+
+    const newMessage = {
+      id: Date.now(),
+      text: messageText,
+      sender: currentUser.name,
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedChannels = channels.map(ch => 
+      ch.id === activeChannel.id 
+        ? { ...ch, messages: [...(ch.messages || []), newMessage] }
+        : ch
+    );
+
+    setChannels(updatedChannels);
+    setMessageText('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <MessageSquare size={24} />
+            {activeChannel.name}
+          </h2>
+          <p className="text-sm text-blue-100 mt-1">
+            {activeChannel.members === 'all' ? `All team members (${users.length})` : `${activeChannel.members.length} members`}
+          </p>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          {(!activeChannel.messages || activeChannel.messages.length === 0) ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-500">
+                <MessageSquare size={64} className="mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-semibold">No messages yet</p>
+                <p className="text-sm">Start the conversation!</p>
+              </div>
+            </div>
+          ) : (
+            activeChannel.messages.map((msg) => {
+              const isOwnMessage = msg.sender === currentUser.name;
+              return (
+                <div key={msg.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs md:max-w-md lg:max-w-lg`}>
+                    {!isOwnMessage && (
+                      <div className="text-xs font-semibold text-gray-600 mb-1 px-1">
+                        {msg.sender}
+                      </div>
+                    )}
+                    <div className={`px-4 py-2 rounded-2xl ${
+                      isOwnMessage
+                        ? 'bg-blue-600 text-white rounded-br-sm'
+                        : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+                    }`}>
+                      <p className="text-sm">{msg.text}</p>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1 px-1">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type a message..."
+              className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!messageText.trim()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // MY LEADS - Personal lead list for canvassers
 // ============================================
 
@@ -1433,6 +1554,14 @@ const AdminDashboard = (props) => {
         )}
         {view === 'analytics' && (
           <AnalyticsView {...props} />
+        )}
+        {view === 'team' && (
+          <TeamMessaging 
+            currentUser={currentUser}
+            users={props.users}
+            channels={props.channels}
+            setChannels={props.setChannels}
+          />
         )}
       </div>
     </div>
