@@ -1020,18 +1020,50 @@ const LeadHub = ({ addressSearch, handleAddressSearch, addressSuggestions, handl
 };
 
 // ============================================
-// CANVASSER FORM - Lead creation form
+// CANVASSER FORM - Enhanced lead creation form
 // ============================================
 
 const CanvasserForm = ({ addCustomer, selectedAddress }) => {
   const [formData, setFormData] = useState({ 
     name: '', 
-    phone: '', 
+    primaryPhone: '',
+    secondaryPhone: '',
     email: '', 
     address: selectedAddress || '', 
+    apptDate: '',
+    apptTime: '',
+    ageOfHome: '',
+    yearsOwned: '',
     foundationType: '', 
+    crawlspaceDepth: '',
+    husbandWorkSchedule: '',
+    wifeWorkSchedule: '',
+    occupation: '',
     sourceOfLead: '', 
-    notes: '' 
+    notes: '',
+    // Checkboxes
+    issues: {
+      waterDampness: false,
+      darkSpots: false,
+      moldMildew: false,
+      whitePowder: false,
+      unfinished: false,
+      finished: false,
+      panelingWarped: false,
+      cracks: false,
+      allergies: false,
+      mustySmell: false,
+      runningDehumidifier: false
+    },
+    // Additional questions
+    dampnessFrequency: '',
+    solutionsAttempted: '',
+    problemLocation: '',
+    whenNoticed: '',
+    whoInspected: '',
+    howLong: '',
+    numberOfCracks: '',
+    inspectionGoals: ''
   });
   const [photoPreview, setPhotoPreview] = useState(null);
   const [submitted, setSubmitted] = useState(false);
@@ -1049,6 +1081,16 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
     }
   };
 
+  const handleCheckboxChange = (field) => {
+    setFormData({
+      ...formData,
+      issues: {
+        ...formData.issues,
+        [field]: !formData.issues[field]
+      }
+    });
+  };
+
   const handleSubmit = () => {
     if (!formData.name || !formData.address || !formData.foundationType) {
       alert('Please fill in: Name, Address, and Foundation Type');
@@ -1058,14 +1100,52 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
     addCustomer(formData);
     setSubmitted(true);
     setTimeout(() => {
-      setFormData({ name: '', phone: '', email: '', address: '', foundationType: '', sourceOfLead: '', notes: '' });
+      setFormData({ 
+        name: '', 
+        primaryPhone: '',
+        secondaryPhone: '',
+        email: '', 
+        address: '', 
+        apptDate: '',
+        apptTime: '',
+        ageOfHome: '',
+        yearsOwned: '',
+        foundationType: '', 
+        crawlspaceDepth: '',
+        husbandWorkSchedule: '',
+        wifeWorkSchedule: '',
+        occupation: '',
+        sourceOfLead: '', 
+        notes: '',
+        issues: {
+          waterDampness: false,
+          darkSpots: false,
+          moldMildew: false,
+          whitePowder: false,
+          unfinished: false,
+          finished: false,
+          panelingWarped: false,
+          cracks: false,
+          allergies: false,
+          mustySmell: false,
+          runningDehumidifier: false
+        },
+        dampnessFrequency: '',
+        solutionsAttempted: '',
+        problemLocation: '',
+        whenNoticed: '',
+        whoInspected: '',
+        howLong: '',
+        numberOfCracks: '',
+        inspectionGoals: ''
+      });
       setPhotoPreview(null);
       setSubmitted(false);
     }, 2000);
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-4 md:p-8 max-w-3xl mx-auto">
+    <div className="bg-white rounded-2xl shadow-xl p-4 md:p-8 max-w-4xl mx-auto">
       <h2 className="text-2xl md:text-3xl font-bold mb-6 text-gray-800">New Homeowner Information</h2>
       
       {submitted && (
@@ -1076,117 +1156,349 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
         </div>
       )}
 
-      <div className="space-y-4 md:space-y-5">
-        {/* Name and Phone */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField 
-            label="Name" 
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Homeowner name"
-          />
-          <FormField 
-            label="Phone" 
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="(555) 123-4567"
-            type="tel"
-          />
-        </div>
-
-        {/* Email */}
-        <FormField 
-          label="Email" 
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="email@example.com"
-          type="email"
-        />
-
-        {/* Address */}
-        <FormField 
-          label="Address" 
-          required
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          placeholder="123 Main St, Cincinnati, OH 45202"
-        />
-
-        {/* Foundation Type and Source */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Foundation Type <span className="text-red-500">*</span>
-            </label>
-            <select 
-              value={formData.foundationType} 
-              onChange={(e) => setFormData({ ...formData, foundationType: e.target.value })} 
-              className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-            >
-              <option value="">Select type...</option>
-              <option value="Concrete Slab">Concrete Slab</option>
-              <option value="Crawl Space">Crawl Space</option>
-              <option value="Basement">Basement</option>
-              <option value="Pilings">Pilings</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <FormField 
-            label="How did they hear about us?" 
-            value={formData.sourceOfLead}
-            onChange={(e) => setFormData({ ...formData, sourceOfLead: e.target.value })}
-            placeholder="Door-to-door, referral, etc."
-          />
-        </div>
-
-        {/* Photo Upload */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Property Photo (Optional)
-          </label>
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={handlePhotoChange}
-              className="hidden" 
-              id="photo-upload"
+      <div className="space-y-6">
+        {/* Basic Information Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Basic Information</h3>
+          
+          <div className="space-y-4">
+            <FormField 
+              label="Name" 
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Homeowner name"
             />
-            <label htmlFor="photo-upload" className="cursor-pointer">
-              {photoPreview ? (
-                <div className="space-y-3">
-                  <img src={photoPreview} alt="Preview" className="max-h-48 mx-auto rounded-lg" />
-                  <p className="text-sm text-gray-600">Click to change photo</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Camera className="mx-auto text-gray-400" size={48} />
-                  <p className="text-gray-600">Click to upload property photo</p>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
-                </div>
-              )}
-            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField 
+                label="Primary Phone" 
+                value={formData.primaryPhone}
+                onChange={(e) => setFormData({ ...formData, primaryPhone: e.target.value })}
+                placeholder="(555) 123-4567"
+                type="tel"
+              />
+              <FormField 
+                label="Secondary Phone" 
+                value={formData.secondaryPhone}
+                onChange={(e) => setFormData({ ...formData, secondaryPhone: e.target.value })}
+                placeholder="(555) 987-6543"
+                type="tel"
+              />
+            </div>
+
+            <FormField 
+              label="Email" 
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="email@example.com"
+              type="email"
+            />
+
+            <FormField 
+              label="Address" 
+              required
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="123 Main St, Cincinnati, OH 45202"
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField 
+                label="Appointment Date" 
+                value={formData.apptDate}
+                onChange={(e) => setFormData({ ...formData, apptDate: e.target.value })}
+                type="date"
+              />
+              <FormField 
+                label="Appointment Time" 
+                value={formData.apptTime}
+                onChange={(e) => setFormData({ ...formData, apptTime: e.target.value })}
+                type="time"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-          <textarea 
-            value={formData.notes} 
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })} 
-            className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-24 resize-none" 
-            placeholder="Any additional information..."
-          />
+        {/* Property Information Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Property Information</h3>
+          
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField 
+                label="Age of Home / Year Built" 
+                value={formData.ageOfHome}
+                onChange={(e) => setFormData({ ...formData, ageOfHome: e.target.value })}
+                placeholder="e.g., 1985 or 39 years"
+              />
+              <FormField 
+                label="Years Owned" 
+                value={formData.yearsOwned}
+                onChange={(e) => setFormData({ ...formData, yearsOwned: e.target.value })}
+                placeholder="e.g., 5"
+                type="number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Foundation Type <span className="text-red-500">*</span>
+              </label>
+              <select 
+                value={formData.foundationType} 
+                onChange={(e) => setFormData({ ...formData, foundationType: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+              >
+                <option value="">Select type...</option>
+                <option value="Concrete Slab">Concrete Slab</option>
+                <option value="Crawl Space">Crawl Space</option>
+                <option value="Basement">Basement</option>
+                <option value="Pilings">Pilings</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Conditional Crawlspace Depth */}
+            {formData.foundationType === 'Crawl Space' && (
+              <FormField 
+                label="Crawlspace Depth" 
+                value={formData.crawlspaceDepth}
+                onChange={(e) => setFormData({ ...formData, crawlspaceDepth: e.target.value })}
+                placeholder="e.g., 3 feet"
+              />
+            )}
+          </div>
         </div>
 
-        {/* Submit */}
+        {/* Homeowner Information Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Homeowner Details</h3>
+          
+          <div className="space-y-4">
+            <FormField 
+              label="Occupation" 
+              value={formData.occupation}
+              onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+              placeholder="e.g., Teacher, Engineer"
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField 
+                label="Husband (H) Work Schedule" 
+                value={formData.husbandWorkSchedule}
+                onChange={(e) => setFormData({ ...formData, husbandWorkSchedule: e.target.value })}
+                placeholder="e.g., 9AM-5PM Mon-Fri"
+              />
+              <FormField 
+                label="Wife (W) Work Schedule" 
+                value={formData.wifeWorkSchedule}
+                onChange={(e) => setFormData({ ...formData, wifeWorkSchedule: e.target.value })}
+                placeholder="e.g., 8AM-4PM Mon-Fri"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Issues Checklist Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Observed Issues</h3>
+          <p className="text-sm text-gray-600 mb-4">Select all that apply:</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { key: 'waterDampness', label: 'Water or Dampness' },
+              { key: 'darkSpots', label: 'Dark Spots' },
+              { key: 'moldMildew', label: 'Mold / Mildew' },
+              { key: 'whitePowder', label: 'White Powder' },
+              { key: 'unfinished', label: 'Unfinished' },
+              { key: 'finished', label: 'Finished' },
+              { key: 'panelingWarped', label: 'Paneling Warped / Molded' },
+              { key: 'cracks', label: 'Cracks' },
+              { key: 'allergies', label: 'Allergies' },
+              { key: 'mustySmell', label: 'Musty Smell' },
+              { key: 'runningDehumidifier', label: 'Running Dehumidifier' }
+            ].map(issue => (
+              <label key={issue.key} className="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg hover:border-blue-400 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.issues[issue.key]}
+                  onChange={() => handleCheckboxChange(issue.key)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">{issue.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Detailed Assessment Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Detailed Assessment</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                HOW often do you notice dampness or water in your basement/crawl?
+              </label>
+              <textarea 
+                value={formData.dampnessFrequency} 
+                onChange={(e) => setFormData({ ...formData, dampnessFrequency: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-20 resize-none" 
+                placeholder="e.g., After every heavy rain, a few times a year, constantly..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                WHAT have you done to solve the problem?
+              </label>
+              <textarea 
+                value={formData.solutionsAttempted} 
+                onChange={(e) => setFormData({ ...formData, solutionsAttempted: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-20 resize-none" 
+                placeholder="e.g., Installed sump pump, sealed cracks, used dehumidifier..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                WHERE specifically do you see the problem? Walls (high/low)? Floors (cove/middle)?
+              </label>
+              <textarea 
+                value={formData.problemLocation} 
+                onChange={(e) => setFormData({ ...formData, problemLocation: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-20 resize-none" 
+                placeholder="e.g., Bottom of walls near floor, middle of floor, corners..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                WHEN do you notice it more often? After heavy rains? Spring? Fall?
+              </label>
+              <textarea 
+                value={formData.whenNoticed} 
+                onChange={(e) => setFormData({ ...formData, whenNoticed: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-20 resize-none" 
+                placeholder="e.g., Mainly in spring after snow melts, during heavy storms..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                WHO has looked at the problem?
+              </label>
+              <input 
+                type="text"
+                value={formData.whoInspected} 
+                onChange={(e) => setFormData({ ...formData, whoInspected: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
+                placeholder="e.g., Contractor, plumber, no one yet..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                HOW long has this been going on?
+              </label>
+              <input 
+                type="text"
+                value={formData.howLong} 
+                onChange={(e) => setFormData({ ...formData, howLong: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
+                placeholder="e.g., 2 years, since we moved in, just started..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                HOW many cracks do you notice in the floor?
+              </label>
+              <input 
+                type="text"
+                value={formData.numberOfCracks} 
+                onChange={(e) => setFormData({ ...formData, numberOfCracks: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
+                placeholder="e.g., 3-4 small cracks, one large crack..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                What do you hope to get out of this inspection?
+              </label>
+              <textarea 
+                value={formData.inspectionGoals} 
+                onChange={(e) => setFormData({ ...formData, inspectionGoals: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-24 resize-none" 
+                placeholder="e.g., Find the source of water, get cost estimate, determine if foundation is stable..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Information Section */}
+        <div className="border-b pb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Additional Information</h3>
+          
+          <div className="space-y-4">
+            <FormField 
+              label="How did they hear about us?" 
+              value={formData.sourceOfLead}
+              onChange={(e) => setFormData({ ...formData, sourceOfLead: e.target.value })}
+              placeholder="Door-to-door, referral, advertisement, etc."
+            />
+
+            {/* Photo Upload */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Property Photo (Optional)
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handlePhotoChange}
+                  className="hidden" 
+                  id="photo-upload"
+                />
+                <label htmlFor="photo-upload" className="cursor-pointer">
+                  {photoPreview ? (
+                    <div className="space-y-3">
+                      <img src={photoPreview} alt="Preview" className="max-h-48 mx-auto rounded-lg" />
+                      <p className="text-sm text-gray-600">Click to change photo</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Camera className="mx-auto text-gray-400" size={48} />
+                      <p className="text-gray-600">Click to upload property photo</p>
+                      <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                    </div>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            {/* General Notes */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Notes</label>
+              <textarea 
+                value={formData.notes} 
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })} 
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors h-24 resize-none" 
+                placeholder="Any other relevant information..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
         <button 
           onClick={handleSubmit} 
           className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-xl font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-lg text-lg"
         >
-          Submit Homeowner
+          Submit Homeowner Information
         </button>
       </div>
     </div>
