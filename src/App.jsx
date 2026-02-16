@@ -518,28 +518,39 @@ const App = () => {
 // BURGER MENU - Universal Navigation
 // ============================================
 
-const BurgerMenu = ({ isOpen, onClose, currentUser, view, setView, onLogout }) => {
+const BurgerMenu = ({ isOpen, onClose, currentUser, view, setView, onLogout, selectedAddress }) => {
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   if (!isOpen) return null;
-  
+
   const menuItems = currentUser.role === 'canvasser' ? [
     { id: 'canvasser-dashboard', label: 'Dashboard', icon: Activity },
-    { id: 'canvasser-form', label: 'New Homeowner', icon: UserPlus },
-    { id: 'lead-hub', label: 'Lead Hub', icon: MapPin },
-    { id: 'my-leads', label: 'My Leads', icon: FileText },
-    { id: 'team', label: 'Messenger', icon: MessageSquare },
+    { id: 'canvasser-form',      label: 'New Homeowner', icon: UserPlus },
+    { id: 'lead-hub',            label: 'Lead Hub', icon: MapPin },
+    { id: 'my-leads',            label: 'My Leads', icon: FileText },
+    { id: 'team',                label: 'Messenger', icon: MessageSquare },
   ] : [
-    { id: 'dashboard', label: 'Dashboard', icon: Activity },
-    { id: 'leads', label: 'All Leads', icon: Users },
-    { id: 'tasks', label: 'Tasks', icon: CheckCircle },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'team', label: 'Messenger', icon: MessageSquare },
+    { id: 'dashboard',  label: 'Dashboard', icon: Activity },
+    { id: 'leads',      label: 'All Leads', icon: Users },
+    { id: 'tasks',      label: 'Tasks', icon: CheckCircle },
+    { id: 'analytics',  label: 'Analytics', icon: BarChart3 },
+    { id: 'team',       label: 'Messenger', icon: MessageSquare },
   ];
+
+  const encodedAddress = encodeURIComponent(selectedAddress || '');
+  const zillowUrl      = selectedAddress
+    ? `https://www.zillow.com/homes/${encodedAddress}_rb/`
+    : 'https://www.zillow.com';
+  const streetViewUrl  = selectedAddress
+    ? `https://www.google.com/maps?q=${encodedAddress}&layer=c`
+    : 'https://www.google.com/maps';
 
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
       <div className="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 overflow-y-auto">
         <div className="flex flex-col h-full">
+
+          {/* Header */}
           <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-blue-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-white">Menu</h2>
@@ -553,6 +564,8 @@ const BurgerMenu = ({ isOpen, onClose, currentUser, view, setView, onLogout }) =
               <p className="text-xs opacity-75 capitalize">{currentUser.role.replace('_', ' ')}</p>
             </div>
           </div>
+
+          {/* Nav Items */}
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="space-y-2">
               {menuItems.map(item => {
@@ -571,14 +584,84 @@ const BurgerMenu = ({ isOpen, onClose, currentUser, view, setView, onLogout }) =
                   </button>
                 );
               })}
+
+              {/* Resources section - canvassers only */}
+              {currentUser.role === 'canvasser' && (
+                <div>
+                  {/* Resources toggle button */}
+                  <button
+                    onClick={() => setResourcesOpen(!resourcesOpen)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Search size={20} />
+                      <span>Resources</span>
+                    </div>
+                    <span className={`text-xs font-bold transition-transform duration-200 ${resourcesOpen ? 'rotate-180' : ''}`}>
+                      ▼
+                    </span>
+                  </button>
+
+                  {/* Sub-dropdown */}
+                  {resourcesOpen && (
+                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-blue-200 pl-3">
+
+                      {/* Zillow */}
+                      <a
+                        href={zillowUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onClose}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold text-blue-700 hover:bg-blue-50 transition-all"
+                      >
+                        <span className="text-lg">🏠</span>
+                        <div className="text-left">
+                          <p className="text-sm font-semibold">Zillow</p>
+                          {selectedAddress
+                            ? <p className="text-xs text-gray-500 truncate max-w-[140px]">{selectedAddress}</p>
+                            : <p className="text-xs text-gray-400">No address selected</p>
+                          }
+                        </div>
+                      </a>
+
+                      {/* Google Street View */}
+                      <a
+                        href={streetViewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={onClose}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold text-green-700 hover:bg-green-50 transition-all"
+                      >
+                        <span className="text-lg">📍</span>
+                        <div className="text-left">
+                          <p className="text-sm font-semibold">Street View</p>
+                          {selectedAddress
+                            ? <p className="text-xs text-gray-500 truncate max-w-[140px]">{selectedAddress}</p>
+                            : <p className="text-xs text-gray-400">No address selected</p>
+                          }
+                        </div>
+                      </a>
+
+                      {!selectedAddress && (
+                        <p className="text-xs text-gray-400 italic px-4 py-1">
+                          Select an address in Lead Hub to auto-fill these links.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </nav>
           </div>
+
+          {/* Logout */}
           <div className="p-4 border-t">
             <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition">
               <LogOut size={20} />
               <span>Logout</span>
             </button>
           </div>
+
         </div>
       </div>
     </>
@@ -822,13 +905,14 @@ const CanvasserDashboard = (props) => {
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      <BurgerMenu 
+      <BurgerMenu
         isOpen={showBurgerMenu}
         onClose={() => setShowBurgerMenu(false)}
         currentUser={currentUser}
         view={view}
         setView={setView}
         onLogout={handleLogout}
+        selectedAddress={props.selectedAddress}
       />
       
       {/* Header */}
