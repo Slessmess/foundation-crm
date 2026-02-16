@@ -1917,7 +1917,7 @@ const TeamMessaging = ({ currentUser, users, channels, setChannels }) => {
     if (!myChannels.find(ch => ch.id === activeChannelId) && myChannels.length > 0) {
       setActiveChannelId(myChannels[0].id);
     }
-  }, [channels, currentUser.name]);
+  }, [channels, currentUser.name, activeChannelId, myChannels]);
 
   const sendMessage = () => {
     if (!messageText.trim() || !activeChannel) return;
