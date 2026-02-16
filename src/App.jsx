@@ -96,17 +96,17 @@ const App = () => {
   // UI State
   const [loginPassword, setLoginPassword] = useState('');
   const [showRegister, setShowRegister] = useState(false);
-  const [registerData, setRegisterData] = useState({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
+  const [registerData, setRegisterData] = useState({ firstName: '', lastName: '', username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editingCustomer, setEditingCustomer] = useState(null);
   
   // Data State
   const [users, setUsers] = useState([
-    { id: 1, name: 'Admin User', role: 'admin', password: 'admin', weeklyGoal: 0 },
-    { id: 2, name: 'Sales Manager', role: 'sales_manager', password: 'manager', weeklyGoal: 0 },
-    { id: 3, name: 'Sales Rep 1', role: 'sales_rep', password: 'rep', weeklyGoal: 0 },
-    { id: 4, name: 'Canvasser', role: 'canvasser', password: 'canvas', weeklyGoal: 10 },
-    { id: 5, name: 'Confirmation Team', role: 'confirmation', password: 'confirm', weeklyGoal: 0 }
+    { id: 1, firstName: 'Admin', lastName: 'User', name: 'Admin User', role: 'admin', password: 'admin', weeklyGoal: 0 },
+    { id: 2, firstName: 'Sales', lastName: 'Manager', name: 'Sales Manager', role: 'sales_manager', password: 'manager', weeklyGoal: 0 },
+    { id: 3, firstName: 'Sales', lastName: 'Rep 1', name: 'Sales Rep 1', role: 'sales_rep', password: 'rep', weeklyGoal: 0 },
+    { id: 4, firstName: 'Canvasser', lastName: '', name: 'Canvasser', role: 'canvasser', password: 'canvas', weeklyGoal: 10 },
+    { id: 5, firstName: 'Confirmation', lastName: 'Team', name: 'Confirmation Team', role: 'confirmation', password: 'confirm', weeklyGoal: 0 }
   ]);
   const [customerPhotos, setCustomerPhotos] = useState({});
   const [customerCoordinates, setCustomerCoordinates] = useState({});
@@ -239,23 +239,30 @@ const App = () => {
   };
 
   const handleRegister = async () => {
+    if (!registerData.firstName.trim() || !registerData.lastName.trim()) {
+      setError('Please enter your first and last name');
+      return;
+    }
     if (!registerData.username || !registerData.password) {
-      setError('Please enter username and password');
+      setError('Please enter a username and password');
       return;
     }
     if (users.find(u => u.name === registerData.username)) {
       setError('Username already exists');
       return;
     }
-    
-    const newUser = { 
-      id: Date.now(), 
-      name: registerData.username, 
-      role: registerData.role, 
+
+    const fullName = `${registerData.firstName.trim()} ${registerData.lastName.trim()}`;
+    const newUser = {
+      id: Date.now(),
+      firstName: registerData.firstName.trim(),
+      lastName: registerData.lastName.trim(),
+      name: fullName,
+      role: registerData.role,
       password: registerData.password,
       weeklyGoal: registerData.role === 'canvasser' ? registerData.weeklyGoal : 0
     };
-    
+
     setUsers([...users, newUser]);
     if (supabase) {
       try {
@@ -264,10 +271,10 @@ const App = () => {
         console.log('User saved locally');
       }
     }
-    
+
     setError('');
     setShowRegister(false);
-    setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
+    setRegisterData({ firstName: '', lastName: '', username: '', password: '', role: 'canvasser', weeklyGoal: 10 });
     alert('Account created! You can now log in.');
   };
 
@@ -829,6 +836,28 @@ const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPass
         /* REGISTER VIEW */
         ) : (
           <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={registerData.firstName}
+                  onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                  placeholder="First"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={registerData.lastName}
+                  onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                  placeholder="Last"
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
               <input
@@ -882,7 +911,7 @@ const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPass
               Create Account
             </button>
             <button
-              onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 }); setError(''); }}
+              onClick={() => { setShowRegister(false); setRegisterData({ firstName: '', lastName: '', username: '', password: '', role: 'canvasser', weeklyGoal: 10 }); setError(''); }}
               className="w-full bg-white border-2 border-gray-200 text-gray-700 p-3 rounded-xl font-semibold hover:bg-gray-50 transition-all"
             >
               Back to Login
