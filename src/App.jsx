@@ -119,6 +119,18 @@ const App = () => {
     { id: 1, name: 'Everyone', members: 'all', messages: [], createdBy: 'System', createdAt: new Date().toISOString() }
   ]);
 
+  // Load Google Maps JavaScript API with Places library
+  useEffect(() => {
+    if (!document.getElementById('google-maps-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-maps-script';
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyB8NZIHM8iy2ql7cjTS_hj4OGanY-xxXBw&libraries=places';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   // Initialize Supabase
   useEffect(() => {
     const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -186,57 +198,27 @@ const App = () => {
     }
   };
 
-  // Google Places Autocomplete - Real API Integration
-  const handleAddressSearch = async (query) => {
+  // Google Places Autocomplete - Real API using JS SDK
+  const handleAddressSearch = (query) => {
     setAddressSearch(query);
     if (query.length < 3) {
       setAddressSuggestions([]);
       return;
     }
-    
-    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-    
-    // If no API key, use mock data for development
-    if (!apiKey) {
-      console.log('⚠️ Google Maps API key not configured. Using mock data.');
-      const mockSuggestions = [
-        { description: `${query}, Cincinnati, OH 45202`, place_id: `mock-${Date.now()}-1` },
-        { description: `${query}, Covington, KY 41011`, place_id: `mock-${Date.now()}-2` },
-        { description: `${query}, Newport, KY 41071`, place_id: `mock-${Date.now()}-3` }
-      ];
-      setAddressSuggestions(mockSuggestions);
-      return;
-    }
-
-    try {
-      // Use Google Places Autocomplete API
-      // Note: This requires CORS proxy in development or serverless function in production
-      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-      const apiUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=address&key=${apiKey}`;
-      
-      const response = await fetch(proxyUrl + apiUrl);
-      const data = await response.json();
-      
-      if (data.status === 'OK' && data.predictions) {
-        setAddressSuggestions(data.predictions);
-      } else if (data.status === 'ZERO_RESULTS') {
-        setAddressSuggestions([]);
-      } else {
-        console.log('Google Places API status:', data.status);
-        // Fallback to mock data
-        setAddressSuggestions([
-          { description: `${query}, Cincinnati, OH`, place_id: `fallback-${Date.now()}` }
-        ]);
-      }
-    } catch (error) {
-      console.log('Address search error:', error);
-      // Fallback to mock data on error
-      setAddressSuggestions([
-        { description: `${query}, Cincinnati, OH`, place_id: `error-fallback-${Date.now()}` }
-      ]);
+    if (window.google && window.google.maps && window.google.maps.places) {
+      const service = new window.google.maps.places.AutocompleteService();
+      service.getPlacePredictions(
+        { input: query, types: ['address'] },
+        (predictions, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+            setAddressSuggestions(predictions);
+          } else {
+            setAddressSuggestions([]);
+          }
+        }
+      );
     }
   };
-
   const handleAddressSelect = (prediction) => {
     setSelectedAddress(prediction.description);
     setAddressSearch(prediction.description);
@@ -608,11 +590,27 @@ const BurgerMenu = ({ isOpen, onClose, currentUser, view, setView, onLogout }) =
 // ============================================
 
 const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPassword, setLoginPassword, handleLogin, registerData, setRegisterData, handleRegister }) => {
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotPassword = () => {
+    if (!forgotEmail.trim() && !forgotUsername.trim()) return;
+    const subject = encodeURIComponent('Foundation CRM - Password Reset Request');
+    const body = encodeURIComponent(
+      'Hello Admin,\n\nA password reset has been requested:\n\nUsername: ' + (forgotUsername || 'Not provided') +
+      '\nEmail: ' + (forgotEmail || 'Not provided') +
+      '\n\nPlease reset this user\'s password in the CRM admin panel.\n\nThank you.'
+    );
+    window.location.href = 'mailto:admin@foundationcrm.com?subject=' + subject + '&body=' + body;
+    setResetSent(true);
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4">
-      {/* Background pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-40"></div>
-      
+
       <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-block p-4 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl mb-4 shadow-lg">
@@ -630,38 +628,105 @@ const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPass
           </div>
         )}
 
-        {!showRegister ? (
+        {/* FORGOT PASSWORD VIEW */}
+        {showForgotPassword ? (
+          <div className="space-y-5">
+            {resetSent ? (
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-2">
+                  <CheckCircle className="text-green-600" size={36} />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800">Request Sent!</h2>
+                <p className="text-gray-600 text-sm">Your email app should have opened with a pre-filled reset request to your administrator.</p>
+                <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">An admin will reset your password and notify you shortly.</p>
+                <button
+                  onClick={() => { setShowForgotPassword(false); setResetSent(false); setForgotEmail(''); setForgotUsername(''); }}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg"
+                >
+                  Back to Login
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="text-center mb-2">
+                  <h2 className="text-xl font-bold text-gray-800">Forgot Password?</h2>
+                  <p className="text-gray-500 text-sm mt-1">Enter your details and we'll send a reset request to your administrator.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Username</label>
+                  <input
+                    type="text"
+                    value={forgotUsername}
+                    onChange={(e) => setForgotUsername(e.target.value)}
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                    placeholder="Enter your username"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Your Email Address</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                    placeholder="yourname@email.com"
+                  />
+                </div>
+                <button
+                  onClick={handleForgotPassword}
+                  disabled={!forgotEmail.trim() && !forgotUsername.trim()}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Send Reset Request
+                </button>
+                <button
+                  onClick={() => { setShowForgotPassword(false); setForgotEmail(''); setForgotUsername(''); }}
+                  className="w-full bg-white border-2 border-gray-200 text-gray-700 p-3 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                >
+                  Back to Login
+                </button>
+              </>
+            )}
+          </div>
+
+        /* LOGIN VIEW */
+        ) : !showRegister ? (
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-              <input 
-                type="text" 
-                value={loginPassword.split('|')[0] || ''} 
-                onChange={(e) => setLoginPassword(e.target.value + '|' + (loginPassword.split('|')[1] || ''))} 
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-                placeholder="Enter username" 
+              <input
+                type="text"
+                value={loginPassword.split('|')[0] || ''}
+                onChange={(e) => setLoginPassword(e.target.value + '|' + (loginPassword.split('|')[1] || ''))}
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                placeholder="Enter username"
               />
             </div>
-            
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-              <input 
-                type="password" 
-                value={loginPassword.split('|')[1] || ''} 
-                onChange={(e) => setLoginPassword((loginPassword.split('|')[0] || '') + '|' + e.target.value)} 
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])} 
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-                placeholder="Enter password" 
+              <input
+                type="password"
+                value={loginPassword.split('|')[1] || ''}
+                onChange={(e) => setLoginPassword((loginPassword.split('|')[0] || '') + '|' + e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                placeholder="Enter password"
               />
+              <div className="text-right mt-2">
+                <button
+                  onClick={() => { setShowForgotPassword(true); setError(''); }}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
-
-            <button 
-              onClick={() => handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])} 
+            <button
+              onClick={() => handleLogin(loginPassword.split('|')[0], loginPassword.split('|')[1])}
               className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg"
             >
               Sign In
             </button>
-
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -670,43 +735,42 @@ const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPass
                 <span className="px-4 bg-white text-gray-500">or</span>
               </div>
             </div>
-
-            <button 
-              onClick={() => { setShowRegister(true); setLoginPassword(''); setError(''); }} 
+            <button
+              onClick={() => { setShowRegister(true); setLoginPassword(''); setError(''); }}
               className="w-full bg-white border-2 border-gray-200 text-gray-700 p-3 rounded-xl font-semibold hover:bg-gray-50 transition-all"
             >
               Create New Account
             </button>
           </div>
+
+        /* REGISTER VIEW */
         ) : (
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-              <input 
-                type="text" 
-                value={registerData.username} 
-                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })} 
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-                placeholder="Choose username" 
+              <input
+                type="text"
+                value={registerData.username}
+                onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                placeholder="Choose username"
               />
             </div>
-
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-              <input 
-                type="password" 
-                value={registerData.password} 
-                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })} 
-                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-                placeholder="Choose password" 
+              <input
+                type="password"
+                value={registerData.password}
+                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                placeholder="Choose password"
               />
             </div>
-
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
-              <select 
-                value={registerData.role} 
-                onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })} 
+              <select
+                value={registerData.role}
+                onChange={(e) => setRegisterData({ ...registerData, role: e.target.value })}
                 className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
               >
                 <option value="admin">Admin</option>
@@ -716,29 +780,26 @@ const LoginScreen = ({ error, setError, showRegister, setShowRegister, loginPass
                 <option value="confirmation">Confirmation Team</option>
               </select>
             </div>
-
             {registerData.role === 'canvasser' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Weekly Goal</label>
-                <input 
-                  type="number" 
-                  value={registerData.weeklyGoal} 
-                  onChange={(e) => setRegisterData({ ...registerData, weeklyGoal: parseInt(e.target.value) })} 
-                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors" 
-                  placeholder="e.g. 10" 
+                <input
+                  type="number"
+                  value={registerData.weeklyGoal}
+                  onChange={(e) => setRegisterData({ ...registerData, weeklyGoal: parseInt(e.target.value) })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                  placeholder="e.g. 10"
                 />
               </div>
             )}
-
-            <button 
-              onClick={handleRegister} 
+            <button
+              onClick={handleRegister}
               className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white p-3 rounded-xl font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-lg"
             >
               Create Account
             </button>
-
-            <button 
-              onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 }); setError(''); }} 
+            <button
+              onClick={() => { setShowRegister(false); setRegisterData({ username: '', password: '', role: 'canvasser', weeklyGoal: 10 }); setError(''); }}
               className="w-full bg-white border-2 border-gray-200 text-gray-700 p-3 rounded-xl font-semibold hover:bg-gray-50 transition-all"
             >
               Back to Login
@@ -1318,20 +1379,21 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
                   onChange={(e) => {
                     const value = e.target.value;
                     setFormData({ ...formData, street: value });
-                    
-                    // Simple autocomplete logic
-                    if (value.length >= 3) {
-                      setShowSuggestions(true);
-                      // Generate mock suggestions immediately
-                      const mockSuggestions = [
-                        { id: 1, full: `${value}, Cincinnati, OH 45202`, street: value, city: 'Cincinnati', state: 'OH', zip: '45202' },
-                        { id: 2, full: `${value}, Covington, KY 41011`, street: value, city: 'Covington', state: 'KY', zip: '41011' },
-                        { id: 3, full: `${value}, Newport, KY 41071`, street: value, city: 'Newport', state: 'KY', zip: '41071' },
-                        { id: 4, full: `${value}, Mason, OH 45040`, street: value, city: 'Mason', state: 'OH', zip: '45040' },
-                        { id: 5, full: `${value}, Florence, KY 41042`, street: value, city: 'Florence', state: 'KY', zip: '41042' }
-                      ];
-                      setAddressSuggestions(mockSuggestions);
-                    } else {
+                    if (value.length >= 3 && window.google && window.google.maps && window.google.maps.places) {
+                      const service = new window.google.maps.places.AutocompleteService();
+                      service.getPlacePredictions(
+                        { input: value, types: ['address'] },
+                        (predictions, status) => {
+                          if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+                            setAddressSuggestions(predictions);
+                            setShowSuggestions(true);
+                          } else {
+                            setAddressSuggestions([]);
+                            setShowSuggestions(false);
+                          }
+                        }
+                      );
+                    } else if (value.length < 3) {
                       setAddressSuggestions([]);
                       setShowSuggestions(false);
                     }
@@ -1350,25 +1412,46 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
                   <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-500 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
                     {addressSuggestions.map((suggestion) => (
                       <button
-                        key={suggestion.id}
+                        key={suggestion.place_id}
                         type="button"
                         onClick={() => {
-                          setFormData({
-                            ...formData,
-                            address: suggestion.full,
-                            street: suggestion.street,
-                            city: suggestion.city,
-                            state: suggestion.state,
-                            zipCode: suggestion.zip
-                          });
                           setShowSuggestions(false);
                           setAddressSuggestions([]);
+                          // Fetch full place details to parse address components
+                          if (window.google && window.google.maps && window.google.maps.places) {
+                            const mapDiv = document.createElement('div');
+                            const map = new window.google.maps.Map(mapDiv, { center: { lat: 0, lng: 0 }, zoom: 1 });
+                            const placesService = new window.google.maps.places.PlacesService(map);
+                            placesService.getDetails(
+                              { placeId: suggestion.place_id, fields: ['address_components', 'formatted_address'] },
+                              (place, status) => {
+                                if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+                                  let streetNum = '', route = '', city = '', state = '', zip = '';
+                                  (place.address_components || []).forEach(c => {
+                                    if (c.types.includes('street_number')) streetNum = c.long_name;
+                                    if (c.types.includes('route')) route = c.long_name;
+                                    if (c.types.includes('locality')) city = c.long_name;
+                                    if (c.types.includes('administrative_area_level_1')) state = c.short_name;
+                                    if (c.types.includes('postal_code')) zip = c.long_name;
+                                  });
+                                  setFormData({
+                                    ...formData,
+                                    address: place.formatted_address,
+                                    street: streetNum && route ? streetNum + ' ' + route : route || suggestion.description,
+                                    city,
+                                    state,
+                                    zipCode: zip
+                                  });
+                                }
+                              }
+                            );
+                          }
                         }}
                         className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-start gap-2"
                       >
                         <MapPin size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-gray-800">{suggestion.full}</p>
+                          <p className="text-sm font-medium text-gray-800">{suggestion.description}</p>
                         </div>
                       </button>
                     ))}
@@ -1376,7 +1459,7 @@ const CanvasserForm = ({ addCustomer, selectedAddress }) => {
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                💡 Type 3+ characters to see address suggestions
+                💡 Type to search for a real address
               </p>
             </div>
 
