@@ -1893,113 +1893,369 @@ const FormField = ({ label, required, value, onChange, placeholder, type = "text
 // ============================================
 
 const TeamMessaging = ({ currentUser, users, channels, setChannels }) => {
-  const [activeChannel] = useState(channels[0] || { id: 1, name: 'Everyone', members: 'all', messages: [] });
-  const [messageText, setMessageText] = useState('');
+  const [activeChannelId, setActiveChannelId] = useState(channels[0]?.id || 1);
+  const [messageText, setMessageText]         = useState('');
+  const [showNewGroup, setShowNewGroup]        = useState(false);
+  const [selectedMembers, setSelectedMembers]  = useState([]);
+  const [groupName, setGroupName]              = useState('');
+  const messagesEndRef = React.useRef(null);
+
+  // Only show channels this user is a member of
+  const myChannels = channels.filter(ch =>
+    ch.members === 'all' || (Array.isArray(ch.members) && ch.members.includes(currentUser.name))
+  );
+
+  const activeChannel = myChannels.find(ch => ch.id === activeChannelId) || myChannels[0];
+
+  // Auto-scroll to latest message
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeChannel?.messages]);
+
+  // Reset activeChannelId if it's not visible to this user
+  React.useEffect(() => {
+    if (!myChannels.find(ch => ch.id === activeChannelId) && myChannels.length > 0) {
+      setActiveChannelId(myChannels[0].id);
+    }
+  }, [channels, currentUser.name]);
 
   const sendMessage = () => {
-    if (!messageText.trim()) return;
-
+    if (!messageText.trim() || !activeChannel) return;
     const newMessage = {
       id: Date.now(),
-      text: messageText,
+      text: messageText.trim(),
       sender: currentUser.name,
       timestamp: new Date().toISOString()
     };
-
-    const updatedChannels = channels.map(ch => 
-      ch.id === activeChannel.id 
+    setChannels(channels.map(ch =>
+      ch.id === activeChannel.id
         ? { ...ch, messages: [...(ch.messages || []), newMessage] }
         : ch
-    );
-
-    setChannels(updatedChannels);
+    ));
     setMessageText('');
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
+  const toggleMember = (name) => {
+    setSelectedMembers(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
+
+  const createGroup = () => {
+    if (selectedMembers.length === 0) return;
+    const name = groupName.trim() ||
+      (selectedMembers.length === 1
+        ? `${currentUser.name} & ${selectedMembers[0]}`
+        : `${currentUser.name} + ${selectedMembers.length} others`);
+    const newChannel = {
+      id: Date.now(),
+      name,
+      members: [...selectedMembers, currentUser.name],
+      messages: [],
+      createdBy: currentUser.name,
+      createdAt: new Date().toISOString()
+    };
+    setChannels([...channels, newChannel]);
+    setActiveChannelId(newChannel.id);
+    setShowNewGroup(false);
+    setSelectedMembers([]);
+    setGroupName('');
+  };
+
+  const getMemberDisplay = (ch) => {
+    if (ch.members === 'all') return `Everyone (${users.length})`;
+    if (!Array.isArray(ch.members)) return '';
+    const others = ch.members.filter(m => m !== currentUser.name);
+    if (others.length === 0) return 'Just you';
+    if (others.length === 1) return others[0];
+    if (others.length === 2) return others.join(' & ');
+    return `${others[0]}, ${others[1]} +${others.length - 2}`;
+  };
+
+  const getInitials = (name) =>
+    name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+  const getAvatarColor = (name) => {
+    const colors = ['bg-blue-500','bg-green-500','bg-purple-500','bg-rose-500','bg-amber-500','bg-teal-500','bg-indigo-500','bg-pink-500'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // ── NEW GROUP MODAL ──────────────────────────────────────────────────────────
+  if (showNewGroup) {
+    const otherUsers = users.filter(u => u.name !== currentUser.name);
+    return (
+      <div className="bg-white rounded-xl shadow-xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-blue-700 flex items-center gap-3">
+            <button onClick={() => { setShowNewGroup(false); setSelectedMembers([]); setGroupName(''); }}
+              className="text-white hover:bg-white/20 p-1.5 rounded-lg transition">
+              <X size={20} />
+            </button>
+            <h2 className="text-lg font-bold text-white">New Message Group</h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Group name */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Group Name <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="e.g. Sales Team, Morning Crew..."
+                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Member picker */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Select Members
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                {selectedMembers.length === 0
+                  ? 'Tap to add people to this group'
+                  : `${selectedMembers.length} selected`}
+              </p>
+              <div className="space-y-2">
+                {otherUsers.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-8">No other users found</p>
+                ) : (
+                  otherUsers.map(u => {
+                    const selected = selectedMembers.includes(u.name);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => toggleMember(u.name)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                          selected
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 ${getAvatarColor(u.name)}`}>
+                          {getInitials(u.name)}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold text-gray-800 text-sm">{u.name}</p>
+                          <p className="text-xs text-gray-500 capitalize">{u.role?.replace('_', ' ')}</p>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                          selected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                        }`}>
+                          {selected && <Check size={14} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border-t bg-gray-50">
+            <button
+              onClick={createGroup}
+              disabled={selectedMembers.length === 0}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg"
+            >
+              {selectedMembers.length === 0
+                ? 'Select at least one person'
+                : `Create Group with ${selectedMembers.length + 1} people`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MAIN MESSENGER ───────────────────────────────────────────────────────────
   return (
     <div className="bg-white rounded-xl shadow-xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <MessageSquare size={24} />
-            {activeChannel.name}
-          </h2>
-          <p className="text-sm text-blue-100 mt-1">
-            {activeChannel.members === 'all' ? `All team members (${users.length})` : `${activeChannel.members.length} members`}
-          </p>
+      <div className="flex h-full">
+
+        {/* Sidebar - thread list */}
+        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col">
+          {/* Sidebar header */}
+          <div className="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+            <h2 className="font-bold text-gray-800 flex items-center gap-2">
+              <MessageSquare size={18} className="text-blue-600" />
+              Messages
+            </h2>
+            <button
+              onClick={() => setShowNewGroup(true)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-all shadow"
+              title="Create new message group"
+            >
+              <UserPlus size={14} />
+              New Group
+            </button>
+          </div>
+
+          {/* Thread list */}
+          <div className="flex-1 overflow-y-auto">
+            {myChannels.length === 0 ? (
+              <div className="text-center py-12 px-4 text-gray-400">
+                <MessageSquare size={32} className="mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No messages yet</p>
+                <p className="text-xs mt-1">Create a group to start</p>
+              </div>
+            ) : (
+              myChannels.map(ch => {
+                const isActive = ch.id === activeChannelId;
+                const lastMsg  = ch.messages?.[ch.messages.length - 1];
+                const unread   = !isActive && lastMsg && lastMsg.sender !== currentUser.name;
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => setActiveChannelId(ch.id)}
+                    className={`w-full text-left p-3 border-b border-gray-100 transition-all hover:bg-gray-50 ${
+                      isActive ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {/* Avatar / group icon */}
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5 ${
+                        ch.members === 'all' ? 'bg-gradient-to-br from-blue-500 to-blue-700' : getAvatarColor(ch.name)
+                      }`}>
+                        {ch.members === 'all' ? <Users size={16} /> : getInitials(ch.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-sm font-semibold truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                            {ch.name}
+                          </p>
+                          {lastMsg && (
+                            <span className="text-xs text-gray-400 flex-shrink-0 ml-1">
+                              {new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{getMemberDisplay(ch)}</p>
+                        {lastMsg && (
+                          <p className={`text-xs truncate mt-0.5 ${unread ? 'font-semibold text-gray-800' : 'text-gray-400'}`}>
+                            {lastMsg.sender === currentUser.name ? 'You: ' : ''}{lastMsg.text}
+                          </p>
+                        )}
+                      </div>
+                      {unread && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {(!activeChannel.messages || activeChannel.messages.length === 0) ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-500">
-                <MessageSquare size={64} className="mx-auto mb-4 text-gray-300" />
-                <p className="text-lg font-semibold">No messages yet</p>
-                <p className="text-sm">Start the conversation!</p>
+        {/* Main chat area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {!activeChannel ? (
+            <div className="flex-1 flex items-center justify-center text-gray-400">
+              <div className="text-center">
+                <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
+                <p className="font-semibold">Select a conversation</p>
+                <p className="text-sm mt-1">or create a new group</p>
               </div>
             </div>
           ) : (
-            activeChannel.messages.map((msg) => {
-              const isOwnMessage = msg.sender === currentUser.name;
-              return (
-                <div key={msg.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs md:max-w-md lg:max-w-lg`}>
-                    {!isOwnMessage && (
-                      <div className="text-xs font-semibold text-gray-600 mb-1 px-1">
-                        {msg.sender}
-                      </div>
-                    )}
-                    <div className={`px-4 py-2 rounded-2xl ${
-                      isOwnMessage
-                        ? 'bg-blue-600 text-white rounded-br-sm'
-                        : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
-                    }`}>
-                      <p className="text-sm">{msg.text}</p>
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1 px-1">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+            <>
+              {/* Chat header */}
+              <div className="p-4 border-b border-gray-200 bg-white">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                    activeChannel.members === 'all' ? 'bg-gradient-to-br from-blue-500 to-blue-700' : getAvatarColor(activeChannel.name)
+                  }`}>
+                    {activeChannel.members === 'all' ? <Users size={16} /> : getInitials(activeChannel.name)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">{activeChannel.name}</h3>
+                    <p className="text-xs text-gray-500">{getMemberDisplay(activeChannel)}</p>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
+              </div>
 
-        {/* Input */}
-        <div className="p-4 border-t border-gray-200 bg-white">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type a message..."
-              className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!messageText.trim()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-            >
-              Send
-            </button>
-          </div>
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                {(!activeChannel.messages || activeChannel.messages.length === 0) ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-500">
+                      <MessageSquare size={48} className="mx-auto mb-3 text-gray-300" />
+                      <p className="font-semibold">No messages yet</p>
+                      <p className="text-sm mt-1">Say something!</p>
+                    </div>
+                  </div>
+                ) : (
+                  activeChannel.messages.map((msg) => {
+                    const isOwn = msg.sender === currentUser.name;
+                    return (
+                      <div key={msg.id} className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        {!isOwn && (
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${getAvatarColor(msg.sender)}`}>
+                            {getInitials(msg.sender)}
+                          </div>
+                        )}
+                        <div className={`max-w-xs md:max-w-sm lg:max-w-md`}>
+                          {!isOwn && (
+                            <p className="text-xs font-semibold text-gray-600 mb-1 px-1">{msg.sender}</p>
+                          )}
+                          <div className={`px-4 py-2.5 rounded-2xl ${
+                            isOwn
+                              ? 'bg-blue-600 text-white rounded-br-sm'
+                              : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm shadow-sm'
+                          }`}>
+                            <p className="text-sm leading-relaxed">{msg.text}</p>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1 px-1">
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        {isOwn && (
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${getAvatarColor(currentUser.name)}`}>
+                            {getInitials(currentUser.name)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input */}
+              <div className="p-4 border-t border-gray-200 bg-white">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={`Message ${activeChannel.name}...`}
+                    className="flex-1 p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors text-sm"
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!messageText.trim()}
+                    className="px-5 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-200 disabled:cursor-not-allowed transition-all"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
 // ============================================
 // MY LEADS - Personal lead list for canvassers
 // ============================================
